@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 0.1.0
 
 environment:
-  sdk: ^3.8.0
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: ">=3.22.0"
 
 dependencies:
   flutter:
@@ -12,12 +13,17 @@ dependencies:
   english_words: ^4.0.0
   provider: ^6.1.5
   font_awesome_flutter: ^10.7.0
-  qr_code_scanner: ^1.0.1
+  qr_code_scanner_plus: ^2.0.10
   permission_handler: ^11.3.0
   qr_flutter: ^4.1.0
   share_plus: ^7.2.1
-  breez_sdk: ^0.2.2
-  breez_sdk_core: any
+#  breez_liquid:
+#    git:
+#      url: https://github.com/breez/breez-sdk-liquid-dart
+  flutter_breez_liquid:
+    git:
+      url: https://github.com/breez/breez-sdk-liquid-flutter
+  rxdart: ^0.28.0
 
 dev_dependencies:
   flutter_test:
