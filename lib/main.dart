@@ -9,25 +9,17 @@ import 'package:sagali_light/services/breez_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   // Initialize library
-  const String mnemonic = 'your-24-word-mnemonic-here'; // IMPORTANT: Use a real mnemonic or generate one
-  const String API_KEY = 'MIIBbzCCASGgAwIBAgIHPgc3izOVkzAFBgMrZXAwEDEOMAwGA1UEAxMFQnJlZXowHhcNMjUwNDI5MTQ0NjMyWhcNMzUwNDI3MTQ0NjMyWjApMRYwFAYDVQQKEw1TZWxmIEVtcGxveWVkMQ8wDQYDVQQDEwZEYXZpZXMwKjAFBgMrZXADIQDQg/XL3yA8HKIgyimHU/Qbpxy0tvzris1fDUtEs6ldd6OBgDB+MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTaOaPuXmtLDTJVv++VYBiQr9gHCTAfBgNVHSMEGDAWgBTeqtaSVvON53SSFvxMtiCyayiYazAeBgNVHREEFzAVgRNkb2xiZW44MDBAZ21haWwuY29tMAUGAytlcANBAEqOtvtp1I4Rx/QgM7uI/et7GcSxRpYJ3UIpkzAxfMes4ffL5crjmgC3KK0ScolI7kx7u4Frb85DYfE3zgw8CQY=';
-  final appDocumentDir = await getApplicationDocumentsDirectory();
-  final workingDir = "${appDocumentDir.path}/breez_liquid_sdk";
-
   try {
-    // Corrected call to initBreezSDK with required parameters
-    await BreezService().initBreezSDK(
-      mnemonic: mnemonic,
-      breezApiKey: API_KEY,
-      workingDir: workingDir,
-      isMainnet: false, // Set to true for mainnet, false for testnet
-    );
-    print("Breez Service initialized successfully!");
+    // Call the BreezService initialization without parameters now
+    await BreezService().initBreezSDK();
+    print("---------------------Breez Service initialized successfully!");
   } catch (e) {
-    print("Error initializing Breez Service: $e");
+    print("+++++++++++++++++++++Error initializing Breez Service: $e");
     // Handle the error (e.g., show an error message to the user)
   }
+
   runApp(const MyApp());
 }
 
