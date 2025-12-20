@@ -25,7 +25,7 @@ class _SendScreenState extends State<SendScreen> {
   Future<void> _requestCameraPermission() async {
     final status = await Permission.camera.request();
     if (status != PermissionStatus.granted) {
-      // Optionally show alert
+      // Logic for denied permission
     }
   }
 
@@ -41,52 +41,115 @@ class _SendScreenState extends State<SendScreen> {
       setState(() {
         scannedData = scanData.code;
       });
-      controller.pauseCamera(); // Pause after first scan
+      controller.pauseCamera();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0E1A2B),
       appBar: AppBar(
-        title: const Text('Scan QR to Send'),
-        backgroundColor: primaryColor,
+        title: const Text('Send Sats', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent, // Blends better with dark theme
+        elevation: 0,
         foregroundColor: Colors.white,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            flex: 4,
-            child: QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
+          /// 1. BACKGROUND PATTERN
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.4,
+              child: Image.asset('assets/images/bg_pattern.png', fit: BoxFit.cover),
             ),
           ),
-          Expanded(
-            flex: 1,
-            child: Center(
-              child: scannedData != null
-                  ? Text('Scanned: $scannedData')
-                  : const Text('Scan a QR code'),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.paste),
-              label: const Text("Paste Invoice / Address"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 48),
+
+          /// 2. MAIN CONTENT
+          Column(
+            children: [
+              const SizedBox(height: 20),
+              const Text(
+                "Scan recipient's QR code",
+                style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddressScreen()),
-                );
-              },
-            ),
+              const SizedBox(height: 30),
+
+              /// 3. SCANNER WITH CUSTOM OVERLAY
+              Expanded(
+                flex: 5,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 30),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: QRView(
+                      key: qrKey,
+                      onQRViewCreated: _onQRViewCreated,
+                      overlay: QrScannerOverlayShape(
+                        borderColor: Colors.blueAccent,
+                        borderRadius: 20,
+                        borderLength: 40,
+                        borderWidth: 10,
+                        cutOutSize: 250, // Size of the transparent box
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              /// 4. BOTTOM ACTION AREA
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (scannedData != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Address: $scannedData',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.greenAccent, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.paste_rounded, size: 20),
+                        label: const Text("Paste Invoice / Address"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.1),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AddressScreen()),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        "Position the QR code within the frame",
+                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

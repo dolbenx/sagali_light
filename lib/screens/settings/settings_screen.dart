@@ -1,79 +1,186 @@
 import 'package:flutter/material.dart';
-import '../../main.dart'; // for primaryColor
+import 'dart:ui';
+import '../dashboard/dashboard_screen.dart'; // Adjust path
+import '../transactions/transactions_screen.dart'; // Adjust path
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  final Color primaryGold = const Color(0xFFBE8345);
+  final Color bgColor = const Color(0xFF0E1A2B);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: ListView(
+      backgroundColor: bgColor,
+      body: Stack(
         children: [
-          const SizedBox(height: 16),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          /// 1. BACKGROUND PATTERN
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.4,
+              child: Image.asset(
+                'assets/images/bg_pattern.png',
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          SettingsTile(
-            icon: Icons.person,
-            title: 'Profile',
-            subtitle: 'Update your personal info',
-            onTap: () {},
+
+          /// 2. CONTENT
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                _buildHeader(context),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      const _SectionTitle(title: 'General'),
+                      _buildSettingsGroup([
+                        SettingsTile(
+                          icon: Icons.currency_bitcoin,
+                          title: 'Primary Currency',
+                          subtitle: 'ZMW / BTC',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const _SectionTitle(title: 'Account'),
+                      _buildSettingsGroup([
+                        SettingsTile(
+                          icon: Icons.security,
+                          title: 'Security',
+                          subtitle: 'Change PIN',
+                          onTap: () {},
+                        ),
+                        SettingsTile(
+                          icon: Icons.fingerprint,
+                          title: 'Biometrics',
+                          subtitle: 'Setup Face ID or Touch ID',
+                          onTap: () {},
+                        ),
+                      ]),
+                      const _SectionTitle(title: 'Other'),
+                      _buildSettingsGroup([
+                        SettingsTile(
+                          icon: Icons.info_outline,
+                          title: 'About',
+                          subtitle: 'Version 1.0.2',
+                          onTap: () {},
+                        ),
+                        SettingsTile(
+                          icon: Icons.logout,
+                          title: 'Logout',
+                          subtitle: 'Sign out safely',
+                          iconColor: Colors.redAccent,
+                          onTap: () {},
+                        ),
+                      ]),
+                      const SizedBox(height: 120), // Bottom nav padding
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          SettingsTile(
-            icon: Icons.lock,
-            title: 'Change Password',
-            subtitle: 'Update your login credentials',
-            onTap: () {},
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('App Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(height: 8),
-          SettingsTile(
-            icon: Icons.notifications,
-            title: 'Notifications',
-            subtitle: 'Manage notification settings',
-            onTap: () {},
-          ),
-          SettingsTile(
-            icon: Icons.language,
-            title: 'Language',
-            subtitle: 'Choose app language',
-            onTap: () {},
-          ),
-          SettingsTile(
-            icon: Icons.color_lens,
-            title: 'Theme',
-            subtitle: 'Light or dark mode',
-            onTap: () {},
-          ),
-          const Divider(),
-          SettingsTile(
-            icon: Icons.info,
-            title: 'About',
-            subtitle: 'App version and legal info',
-            onTap: () {},
-          ),
-          SettingsTile(
-            icon: Icons.logout,
-            title: 'Logout',
-            subtitle: 'Sign out of your account',
-            iconColor: Colors.red,
-            onTap: () {
-              // TODO: Add logout logic
-            },
-          ),
-          const SizedBox(height: 20),
+
+          /// 3. FLOATING BOTTOM NAV
+          _floatingBottomNav(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const Text(
+            'Settings',
+            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsGroup(List<Widget> tiles) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(children: tiles),
+    );
+  }
+
+  Widget _floatingBottomNav(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              height: 75,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NavItem(
+                    icon: Icons.account_balance_wallet,
+                    label: "Wallet",
+                    onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen())),
+                  ),
+                  _NavItem(
+                    icon: Icons.swap_horiz,
+                    label: "Transactions",
+                    onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TransactionsScreen())),
+                  ),
+                  _NavItem(
+                    icon: Icons.settings,
+                    label: "Settings",
+                    isActive: true,
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// --- Helper Components ---
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  const _SectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.1),
       ),
     );
   }
@@ -98,14 +205,43 @@ class SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: primaryColor.withOpacity(0.1),
-        child: Icon(icon, color: iconColor ?? primaryColor),
-      ),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: (iconColor ?? const Color(0xFFBE8345)).withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: iconColor ?? const Color(0xFFBE8345), size: 20),
+      ),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isActive;
+
+  const _NavItem({required this.icon, required this.label, required this.onTap, this.isActive = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: isActive ? const Color(0xFFBE8345) : Colors.white54, size: 26),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: isActive ? Colors.white : Colors.white38, fontSize: 10)),
+        ],
+      ),
     );
   }
 }
