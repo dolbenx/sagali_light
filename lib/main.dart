@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'screens/splash/splash_screen.dart';
+import 'screens/dashboard/dashboard_screen.dart'; // Ensure this path is correct
+import 'services/wallet_service.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  // Required for async calls before runApp
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Try to auto-login if a mnemonic is already saved
+  final walletService = WalletService();
+  bool isLoggedIn = await walletService.tryAutoLogin();
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
-const Color primaryColor = Color(0xFF055C7A);
-
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -17,9 +25,12 @@ class MyApp extends StatelessWidget {
       title: 'Sagali Wallet',
       theme: ThemeData(
         brightness: Brightness.dark,
+        primaryColor: const Color(0xFF055C7A),
         fontFamily: 'Roboto',
+        scaffoldBackgroundColor: const Color(0xFF0E1A2B),
       ),
-      home: const SplashScreen(),
+      // If logged in, skip splash/welcome and go to Dashboard
+      home: isLoggedIn ? const DashboardScreen() : const SplashScreen(),
     );
   }
 }

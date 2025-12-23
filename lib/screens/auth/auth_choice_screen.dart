@@ -1,20 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'pin_screen.dart';
+import 'package:bdk_flutter/bdk_flutter.dart'; // Ensure bdk_flutter is imported
+import 'create_mnemonic_screen.dart'; // The screen showing the 24 words
+import 'recover_wallet_screen.dart';
 
 class AuthChoiceScreen extends StatelessWidget {
   const AuthChoiceScreen({super.key});
 
-  Future<void> _createWallet(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasWallet', true);
+  /// Logic to generate mnemonic and navigate
+  Future<void> _handleCreateWallet(BuildContext context) async {
+    try {
+      // 1. Generate the 24-word mnemonic using BDK
+      final mnemonic = await Mnemonic.create(WordCount.Words24);
+      final List<String> words = mnemonic.asString().split(' ');
 
-    if (!context.mounted) return;
+      if (!context.mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const PinScreen()),
-    );
+      // 2. Navigate to the display screen with the generated words
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreateMnemonicScreen(generatedWords: words),
+        ),
+      );
+    } catch (e) {
+      // Handle potential generation errors
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error generating wallet: $e")),
+      );
+    }
   }
 
   @override
@@ -26,7 +39,7 @@ class AuthChoiceScreen extends StatelessWidget {
           /// 1. BACKGROUND IMAGE
           Positioned.fill(
             child: Opacity(
-              opacity: 0.4,
+              opacity: 0.1, // Adjusted for better visibility of pattern
               child: Image.asset(
                 'assets/images/bg_pattern.png',
                 fit: BoxFit.cover,
@@ -41,53 +54,71 @@ class AuthChoiceScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        width: 90,
-                        fit: BoxFit.contain,
-                      ),
+                  // Logo
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 100,
+                      fit: BoxFit.contain,
                     ),
+                  ),
                   const Text(
                     "Welcome to Sagali Wallet",
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white, // White text for dark mode
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "The most secure way to manage your Bitcoin",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                  ),
+                  const SizedBox(height: 60),
 
+                  /// CREATE WALLET BUTTON
                   ElevatedButton(
-                    onPressed: () => _createWallet(context),
+                    onPressed: () => _handleCreateWallet(context), // Updated trigger
                     style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      backgroundColor: const Color(0xFFBE8345), // Added brand color
+                      minimumSize: const Size(double.infinity, 56),
+                      backgroundColor: const Color(0xFFBE8345),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
+                      elevation: 0,
                     ),
-                    child: const Text("Create Wallet"),
+                    child: const Text(
+                      "CREATE NEW WALLET",
+                      style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                    ),
                   ),
 
                   const SizedBox(height: 16),
 
+                  /// RECOVER WALLET BUTTON
                   OutlinedButton(
-                    onPressed: () => _createWallet(context),
+                    onPressed: () {
+                      // Navigates to the RecoverWalletScreen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RecoverWalletScreen(),
+                        ),
+                      );
+                    },
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
+                      minimumSize: const Size(double.infinity, 56),
                       side: const BorderSide(color: Colors.white24),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text("Recover Wallet"),
+                    child: const Text("RECOVER EXISTING WALLET"),
                   ),
                 ],
               ),

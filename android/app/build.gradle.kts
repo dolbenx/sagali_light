@@ -8,17 +8,19 @@ plugins {
 android {
     namespace = "com.example.sagali_light"
     compileSdk = flutter.compileSdkVersion
-//    ndkVersion = flutter.ndkVersion
-//    ndkVersion = "27.0.12077973"
-    ndkVersion = "29.0.13599879"
+    //  ndkVersion = flutter.ndkVersion
+     ndkVersion = "27.0.12077973"
+    //  ndkVersion = "29.0.13599879"
+    //  ndkVersion = "26.1.10909125"
+    //  ndkVersion = "25.1.8937393"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -30,6 +32,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            abiFilters.add("armeabi-v7a")
+            abiFilters.add("arm64-v8a")
+            abiFilters.add("x86_64")
+        }
     }
 
     buildTypes {

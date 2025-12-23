@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/wallet_service.dart';
 import '../auth/auth_choice_screen.dart';
 import '../auth/pin_screen.dart';
 
@@ -15,18 +15,19 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _flickerAnimation; // New flicker animation
+  late Animation<double> _flickerAnimation;
 
   @override
   void initState() {
     super.initState();
 
+    // 1. Setup Animation Controller
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
 
-    // 1. Heartbeat Scale
+    // 2. Heartbeat Scale Animation
     _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween(begin: 1.0, end: 1.15).chain(CurveTween(curve: Curves.easeOut)),
@@ -38,32 +39,38 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     ]).animate(_controller);
 
-    // 2. Lightning Flicker (Syncs with the peak of the heartbeat)
+    // 3. Lightning Flicker Animation (Electric Blue/White Effect)
     _flickerAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween<double>(0.0), weight: 35), // Silent start
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.8), weight: 5),   // Flash 1
-      TweenSequenceItem(tween: Tween(begin: 0.8, end: 0.2), weight: 5),   // Quick dim
-      TweenSequenceItem(tween: Tween(begin: 0.2, end: 1.0), weight: 5),   // Flash 2 (Peak)
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50),  // Fade out
+      TweenSequenceItem(tween: ConstantTween<double>(0.0), weight: 35), 
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.8), weight: 5),  
+      TweenSequenceItem(tween: Tween(begin: 0.8, end: 0.2), weight: 5),  
+      TweenSequenceItem(tween: Tween(begin: 0.2, end: 1.0), weight: 5),  
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 50), 
     ]).animate(_controller);
 
+    // 4. Start Auth & Initialization check
     _checkWallet();
   }
 
-  //
-   Future<void> _checkWallet() async {
-    await Future.delayed(const Duration(seconds: 5));
+  /// THE CORE LOGIC: Initialize BDK while animating
+  Future<void> _checkWallet() async {
+    // We give the branding at least 3 seconds of screen time
+    final minimumTimer = Future.delayed(const Duration(seconds: 3));
 
-    final prefs = await SharedPreferences.getInstance();
-    final hasWallet = prefs.getBool('hasWallet') ?? false;
+    // Initialize the BDK Wallet (this checks Secure Storage for us)
+    final loginTask = WalletService().tryAutoLogin();
+
+    // Wait for BOTH the visual timer and the background BDK task
+    final results = await Future.wait([minimumTimer, loginTask]);
+    final bool hasWallet = results[1] as bool;
 
     if (!mounted) return;
 
+    // Navigate to PinScreen if wallet exists, otherwise AuthChoiceScreen
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            hasWallet ? const PinScreen() : const AuthChoiceScreen(),
+        builder: (_) => hasWallet ? const PinScreen() : const AuthChoiceScreen(),
       ),
     );
   }
@@ -77,35 +84,40 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0E1A2B),
+      backgroundColor: const Color(0xFF0E1A2B), // Sagali Dark Blue
       body: Stack(
         children: [
+          // Background Pattern
           Positioned.fill(
             child: Opacity(
               opacity: 0.4,
-              child: Image.asset('assets/images/bg_pattern.png', fit: BoxFit.cover),
+              child: Image.asset(
+                'assets/images/bg_pattern.png', 
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(),
+              ),
             ),
           ),
 
-          /// LOGO WITH FLICKER OVERLAY
+          // Logo with flickering electric effect
           Center(
             child: ScaleTransition(
               scale: _scaleAnimation,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Base Logo
-                  Image.asset('assets/images/logo-2.png', width: 140),
+                  // Standard Gold/Logo
+                  Image.asset('assets/images/logo-2.png', width: 160),
                   
-                  // Lightning Glow Overlay
+                  // Lightning Blue Overlay
                   FadeTransition(
                     opacity: _flickerAnimation,
                     child: ColorFiltered(
                       colorFilter: const ColorFilter.mode(
-                        Colors.white, // Or a lightning blue: Color(0xFF7DF9FF)
+                        Color(0xFF7DF9FF), // Electric Blue
                         BlendMode.srcIn,
                       ),
-                      child: Image.asset('assets/images/logo-2.png', width: 140),
+                      child: Image.asset('assets/images/logo-2.png', width: 160),
                     ),
                   ),
                 ],

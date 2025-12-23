@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../services/wallet_service.dart'; // Ensure this import is correct
 
 class ReceiveScreen extends StatefulWidget {
   const ReceiveScreen({super.key});
@@ -12,8 +13,11 @@ class ReceiveScreen extends StatefulWidget {
 
 class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final String btcAddress = 'bc1qexampleaddress1234567890';
-  final String lightningAddress = 'lightning:sagali@ln.example.com';
+  
+  // Real dynamic address variables
+  String btcAddress = 'Loading...'; 
+  final String lightningAddress = 'lightning:sagali@ln.example.com'; // Placeholder for now
+  bool _isLoadingAddress = true;
 
   @override
   void initState() {
@@ -22,15 +26,39 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) setState(() {});
     });
+
+    // Fetch the real BDK address immediately
+    _fetchBtcAddress();
+  }
+
+  Future<void> _fetchBtcAddress() async {
+    try {
+      // Access the singleton WalletService and get a new address
+      final address = await WalletService().getNewAddress();
+      setState(() {
+        btcAddress = address;
+        _isLoadingAddress = false;
+      });
+    } catch (e) {
+      setState(() {
+        btcAddress = "Error loading address";
+        _isLoadingAddress = false;
+      });
+    }
   }
 
   String get activeAddress => _tabController.index == 0 ? btcAddress : lightningAddress;
 
   @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0E1A2B),
-      // Extend the body so the background goes behind the status bar and app bar
       extendBodyBehindAppBar: true, 
       appBar: AppBar(
         title: const Text('Receive', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -40,7 +68,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: const Color(0xFFBE8345), // Using your primary gold
+          indicatorColor: const Color(0xFFBE8345),
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white38,
@@ -52,20 +80,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
       ),
       body: Stack(
         children: [
-          /// 1. FIXED BACKGROUND
-          /// By using MediaQuery, we ensure it covers the exact screen pixels 
-          /// regardless of content scrolling.
           Positioned.fill(
             child: Opacity(
-              opacity: 0.4, // Lowered for a cleaner "premium" feel
+              opacity: 0.4,
               child: Image.asset(
                 'assets/images/bg_pattern.png', 
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(),
               ),
             ),
           ),
-
-          /// 2. CONTENT
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -91,16 +115,22 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: QrImageView(
-                              data: activeAddress,
-                              version: QrVersions.auto,
-                              size: MediaQuery.of(context).size.width * 0.55,
-                              foregroundColor: const Color(0xFF0E1A2B),
-                            ),
+                            child: _isLoadingAddress && _tabController.index == 0
+                              ? const SizedBox(
+                                  width: 200, 
+                                  height: 200, 
+                                  child: Center(child: CircularProgressIndicator(color: Color(0xFF0E1A2B)))
+                                )
+                              : QrImageView(
+                                  data: activeAddress,
+                                  version: QrVersions.auto,
+                                  size: MediaQuery.of(context).size.width * 0.55,
+                                  foregroundColor: const Color(0xFF0E1A2B),
+                                ),
                           ),
                           const SizedBox(height: 24),
                           Text(
-                            _tabController.index == 0 ? "Bitcoin Address" : "Lightning Invoice",
+                            _tabController.index == 0 ? "Bitcoin Address (Testnet)" : "Lightning Invoice",
                             style: const TextStyle(color: Colors.white54, fontSize: 12),
                           ),
                           const SizedBox(height: 12),
@@ -132,7 +162,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                           child: _ActionButton(
                             icon: Icons.copy_all_rounded,
                             label: "Copy",
-                            onTap: () {
+                            onTap: _isLoadingAddress ? () {} : () {
                               Clipboard.setData(ClipboardData(text: activeAddress));
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -148,7 +178,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                           child: _ActionButton(
                             icon: Icons.share_rounded,
                             label: "Share",
-                            onTap: () => Share.share(activeAddress),
+                            onTap: _isLoadingAddress ? () {} : () => Share.share(activeAddress),
                           ),
                         ),
                       ],
@@ -157,7 +187,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        "Only send BTC to this address. Sending other assets may result in permanent loss.",
+                        "Only send Bitcoin Testnet BTC to this address. Sending other assets may result in permanent loss.",
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white24, fontSize: 11, height: 1.5),
                       ),
