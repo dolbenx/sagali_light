@@ -11,6 +11,7 @@ class WalletService {
   Wallet? _wallet;
   final _storage = const FlutterSecureStorage();
   final String _mnemonicKey = 'sagali_mnemonic_phrase';
+  final String _pinKey = "user_pin";
 
   Wallet? get wallet => _wallet;
 
@@ -84,6 +85,9 @@ class WalletService {
     return addressInfo.address;
   }
 
+  Future<void> setPin(String pin) async {
+    await _storage.write(key: _pinKey, value: pin);
+  }
   /// LOGOUT: Deletes the stored key so the user has to re-enter words or create new
   Future<void> logout() async {
     await _storage.delete(key: _mnemonicKey);

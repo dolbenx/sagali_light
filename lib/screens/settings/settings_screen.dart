@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../dashboard/dashboard_screen.dart'; // Adjust path
 import '../transactions/transactions_screen.dart'; // Adjust path
+import '../auth/pin_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -75,7 +76,10 @@ class SettingsScreen extends StatelessWidget {
                           title: 'Logout',
                           subtitle: 'Sign out safely',
                           iconColor: Colors.redAccent,
-                          onTap: () {},
+                          onTap: () {
+                          // 1. Show a quick confirmation dialog (Optional but professional)
+                          _showLogoutDialog(context);
+  },
                         ),
                       ]),
                       const SizedBox(height: 120), // Bottom nav padding
@@ -120,6 +124,35 @@ class SettingsScreen extends StatelessWidget {
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(children: tiles),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF162235),
+        title: const Text("Logout", style: TextStyle(color: Colors.white)),
+        content: const Text("This will lock your wallet. You will need your PIN to enter again.",
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () {
+              // Navigate to PinScreen and clear all previous screens from the stack
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const PinScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -240,6 +273,35 @@ class _NavItem extends StatelessWidget {
           Icon(icon, color: isActive ? const Color(0xFFBE8345) : Colors.white54, size: 26),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(color: isActive ? Colors.white : Colors.white38, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF162235),
+        title: const Text("Logout", style: TextStyle(color: Colors.white)),
+        content: const Text("This will lock your wallet. You will need your PIN to enter again.",
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () {
+              // Navigate to PinScreen and clear all previous screens from the stack
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const PinScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
+          ),
         ],
       ),
     );

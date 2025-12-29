@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../../services/wallet_service.dart';
 import '../dashboard/dashboard_screen.dart';
+import 'pin_setup_screen.dart';
 
 class VerifyMnemonicScreen extends StatefulWidget {
   final List<String> originalMnemonic;
@@ -39,10 +40,9 @@ class _VerifyMnemonicScreenState extends State<VerifyMnemonicScreen> {
       Navigator.pop(context);
 
       // 4. Navigate to Dashboard and clear stack
-      Navigator.pushAndRemoveUntil(
+      Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-        (route) => false,
+        MaterialPageRoute(builder: (_) => const PinSetupScreen()),
       );
     } catch (e) {
       Navigator.pop(context); // Close loading

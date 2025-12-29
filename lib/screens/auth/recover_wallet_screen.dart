@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/wallet_service.dart';
 import '../dashboard/dashboard_screen.dart';
+import 'pin_setup_screen.dart';
 
 class RecoverWalletScreen extends StatefulWidget {
   const RecoverWalletScreen({super.key});
@@ -33,10 +34,9 @@ class _RecoverWalletScreenState extends State<RecoverWalletScreen> {
 
       if (!mounted) return;
       
-      Navigator.pushAndRemoveUntil(
+      Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-        (route) => false,
+        MaterialPageRoute(builder: (_) => const PinSetupScreen()),
       );
     } catch (e) {
       setState(() => _isLoading = false);
