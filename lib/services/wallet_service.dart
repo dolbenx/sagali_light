@@ -14,6 +14,7 @@ class WalletService {
   final String _pinKey = "user_pin";
 
   Wallet? get wallet => _wallet;
+  Blockchain? _blockchain;
 
   /// AUTO-LOGIN: Checks if a mnemonic is saved and initializes BDK
   Future<bool> tryAutoLogin() async {
@@ -93,4 +94,66 @@ class WalletService {
     await _storage.delete(key: _mnemonicKey);
     _wallet = null;
   }
+
+  /// SYNC: Connects to the network to update balance and tx history
+  Future<void> syncWallet() async {
+    if (_wallet == null) return;
+    try {
+      _blockchain ??= await Blockchain.create(
+        config: BlockchainConfig.electrum(
+          config: ElectrumConfig(
+            url: 'ssl://electrum.blockstream.info:60002',
+            retry: 5,
+            timeout: 5,
+            stopGap: 10,
+            validateDomain: true,
+          ),
+        ),
+      );
+      
+      await _wallet!.sync(_blockchain!);
+      debugPrint("Sync Successful");
+    } catch (e) {
+      debugPrint("Sync Error: $e");
+    }
+  }
+
+   Future<List<TransactionDetails>> getOnChainTransactions() async {
+  if (_wallet == null) return [];
+
+  try {
+    final transactions = await _wallet!.listTransactions(false);
+
+    transactions.sort((a, b) {
+      // This helper ensures we ALWAYS return a BigInt to satisfy the sort
+      BigInt getSafeTime(BlockTime? time) {
+        if (time == null) {
+          // Use a massive number for pending txs to keep them at the top
+          return BigInt.from(8640000000); 
+        }
+
+        // We use 'dynamic' here because the BDK bridge varies between int/BigInt
+        final dynamic ts = time.timestamp;
+
+        if (ts is BigInt) {
+          return ts;
+        } else if (ts is int) {
+          return BigInt.from(ts);
+        } else {
+          return BigInt.from(0);
+        }
+      }
+
+      final aTime = getSafeTime(a.confirmationTime);
+      final bTime = getSafeTime(b.confirmationTime);
+      
+      return bTime.compareTo(aTime);
+    });
+
+    return transactions;
+  } catch (e) {
+    debugPrint("Error fetching transactions: $e");
+    return [];
+  }
+}
 }
