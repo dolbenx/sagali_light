@@ -3,11 +3,36 @@ import 'dart:ui';
 import '../dashboard/dashboard_screen.dart'; // Adjust path
 import '../transactions/transactions_screen.dart'; // Adjust path
 import '../auth/pin_screen.dart';
+import '../auth/change_pin_screen.dart';
+import '../../services/biometric_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String _version = "0.0.0";
+
+  @override
+  void initState() {
+    super.initState();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+      // This is the call that fetches the data from the native side (Android/iOS)
+      final info = await PackageInfo.fromPlatform();
+      setState(() {
+        _version = info.version;
+    });
+  }
   final Color primaryGold = const Color(0xFFBE8345);
+
   final Color bgColor = const Color(0xFF0E1A2B);
 
   @override
@@ -54,13 +79,37 @@ class SettingsScreen extends StatelessWidget {
                           icon: Icons.security,
                           title: 'Security',
                           subtitle: 'Change PIN',
-                          onTap: () {},
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const ChangePinScreen()),
+                            );
+                          },
                         ),
                         SettingsTile(
                           icon: Icons.fingerprint,
                           title: 'Biometrics',
                           subtitle: 'Setup Face ID or Touch ID',
-                          onTap: () {},
+                          onTap: () async {
+                            final bioService = BiometricService();
+                            bool isSupported = await bioService.isDeviceSupported();
+
+                            if (isSupported) {
+                              bool success = await bioService.authenticate();
+                              if (success) {
+                                // Save preference to storage
+                                await const FlutterSecureStorage().write(key: 'use_biometrics', value: 'true');
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Biometrics enabled successfully!")),
+                                );
+                              }
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Biometrics not supported on this device.")),
+                              );
+                            }
+                          },
                         ),
                       ]),
                       const _SectionTitle(title: 'Other'),
@@ -68,8 +117,18 @@ class SettingsScreen extends StatelessWidget {
                         SettingsTile(
                           icon: Icons.info_outline,
                           title: 'About',
-                          subtitle: 'Version 1.0.2',
-                          onTap: () {},
+                          subtitle: _version,
+                          onTap: () {
+                            showAboutDialog(
+                              context: context,
+                              applicationName: "Sagali Wallet",
+                              applicationVersion: _version,
+                              applicationIcon: Image.asset('assets/images/logo-2.png', width: 50),
+                              children: [
+                                const Text("Secure Bitcoin Lightning wallet for Zambia."),
+                              ],
+                            );
+                          },
                         ),
                         SettingsTile(
                           icon: Icons.logout,

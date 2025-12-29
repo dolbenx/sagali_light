@@ -125,7 +125,7 @@ class TransactionsScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            'Activity',
+            'Transaction History',
             style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
         ],
@@ -159,7 +159,7 @@ class TransactionsScreen extends StatelessWidget {
                   ),
                   _NavItem(
                     icon: Icons.swap_horiz,
-                    label: "History",
+                    label: "Transactions",
                     isActive: true,
                     onTap: () {},
                   ),

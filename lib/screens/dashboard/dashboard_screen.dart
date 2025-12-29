@@ -14,7 +14,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   String _btcBalance = "0.00000000";
   String _zmwBalance = "0.00";
   bool _isLoading = true;
@@ -22,37 +22,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshWallet();
+  }
+
+  @override
+  void dispose() {
+    // 3. Unregister the observer to prevent memory leaks
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 4. Handle the state change
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // When the app goes to the background (minimized)
+    if (state == AppLifecycleState.paused) {
+      _lockApp();
+    }
+  }
+
+  void _lockApp() {
+    // Navigate back to the PinScreen and clear the navigation stack
+    // This ensures they can't 'back' into the dashboard
+    Navigator.of(context).pushNamedAndRemoveUntil('/pin', (route) => false);
   }
 
   /// Syncs with the blockchain and updates the balance
   Future<void> _refreshWallet() async {
-    setState(() => _isLoading = true);
-    try {
-      final wallet = WalletService().wallet;
-      if (wallet != null) {
-        // 1. In a real app, you'd call wallet.sync() here with a Blockchain client
-        // For now, we get the cached balance from the local database
-        final balance = await wallet.getBalance();
-        
-        // 2. Convert Satoshis to BTC
-        final btcValue = balance.total / 100000000;
-        
-        // 3. Simple Mock Conversion (e.g., 1 BTC = 1,500,000 ZMW)
-        // In production, you'd fetch this from an API like CoinGecko
-        final zmwValue = btcValue * 1500000; 
+  if (!mounted) return;
+  setState(() => _isLoading = true);
 
-        setState(() {
-          _btcBalance = btcValue.toStringAsFixed(8);
-          _zmwBalance = zmwValue.toStringAsFixed(2);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error refreshing wallet: $e");
+  try {
+    final wallet = WalletService().wallet;
+    final blockchain = WalletService().getBlockchain;
+
+    if (wallet != null && blockchain != null) {
+      // 1. FORCE SYNC: This talks to the Electrum/Esplora server 
+      // to find new transactions and update balance.
+      await wallet.sync(blockchain);
+
+      // 2. Get the updated balance
+      final balance = await wallet.getBalance();
+      
+      // 3. Convert Satoshis (Total includes confirmed + trusted_pending)
+      final int totalSats = balance.total;
+      final double btcValue = totalSats / 100000000;
+      
+      // 4. Update the UI
+      setState(() {
+        // Display as Sats if you prefer (matching your Send screen)
+        // or keep as BTC string
+        _btcBalance = btcValue.toStringAsFixed(8);
+        
+        // Mock conversion to ZMW
+        _zmwBalance = (btcValue * 1500000).toStringAsFixed(2);
+        _isLoading = false;
+      });
+    }
+  } catch (e) {
+    debugPrint("Dashboard Sync Error: $e");
+    if (mounted) {
       setState(() => _isLoading = false);
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +142,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       icon: Icons.call_made,
                       background: Colors.white,
                       textColor: Colors.blue,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SendScreen())),
+                      onTap: () async {
+                        await Navigator.push(context, MaterialPageRoute(builder: (context) => const SendScreen()));
+                        _refreshWallet();
+                      },
                     ),
                     const SizedBox(height: 14),
                     _actionButton(

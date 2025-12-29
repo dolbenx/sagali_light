@@ -1,7 +1,7 @@
 name: sagali_light
 description: "Bitcoin Ligtning Wallet."
 publish_to: 'none'
-version: 0.1.0
+version: 0.1.1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -23,6 +23,7 @@ dependencies:
   bdk_flutter: ^0.30.0
   flutter_secure_storage: ^9.0.0
   local_auth: ^2.3.0
+  package_info_plus: ^9.0.0
 
 dev_dependencies:
   flutter_test:
