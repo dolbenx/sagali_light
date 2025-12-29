@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
+import 'package:bdk_flutter/bdk_flutter.dart' as bdk; // Import BDK
+import 'confirm_send_screen.dart'; // Import your confirm screen
 
 class AddressScreen extends StatefulWidget {
   const AddressScreen({super.key});
@@ -12,8 +13,56 @@ class AddressScreen extends StatefulWidget {
 class _AddressScreenState extends State<AddressScreen> {
   final TextEditingController _controller = TextEditingController();
   final Color primaryGold = const Color(0xFFBE8345);
+  bool _isValidating = false;
 
-  // Helper to paste text automatically
+  // 1. BIP21 CLEANER Helper
+  String _cleanAddress(String input) {
+    String clean = input.trim();
+    if (clean.toLowerCase().startsWith("bitcoin:")) {
+      clean = clean.substring(8);
+    }
+    if (clean.contains("?")) {
+      clean = clean.split("?")[0];
+    }
+    return clean;
+  }
+
+  // 2. VALIDATION & NAVIGATION LOGIC
+  Future<void> _handleContinue() async {
+    final rawInput = _controller.text.trim();
+    if (rawInput.isEmpty) return;
+
+    setState(() => _isValidating = true);
+
+    try {
+      final cleanAddr = _cleanAddress(rawInput);
+
+      // Verify if the address is valid for the network
+      // This catches the "Base58/Bech32 encoding error" here instead of the next screen
+      await bdk.Address.create(address: cleanAddr);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConfirmSendScreen(recipientAddress: cleanAddr),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Invalid Bitcoin Address: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isValidating = false);
+    }
+  }
+
   Future<void> _pasteFromClipboard() async {
     ClipboardData? data = await Clipboard.getData('text/plain');
     if (data != null) {
@@ -29,7 +78,6 @@ class _AddressScreenState extends State<AddressScreen> {
       backgroundColor: const Color(0xFF0E1A2B),
       body: Stack(
         children: [
-          /// 1. BACKGROUND PATTERN
           Positioned.fill(
             child: Opacity(
               opacity: 0.4,
@@ -39,8 +87,6 @@ class _AddressScreenState extends State<AddressScreen> {
               ),
             ),
           ),
-
-          /// 2. CONTENT
           SafeArea(
             child: Column(
               children: [
@@ -60,8 +106,6 @@ class _AddressScreenState extends State<AddressScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-
-                        /// GLASS INPUT FIELD
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.05),
@@ -85,8 +129,6 @@ class _AddressScreenState extends State<AddressScreen> {
                                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
                                 ),
                               ),
-                              
-                              /// PASTE BUTTON INSIDE TEXTFIELD AREA
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton.icon(
@@ -101,10 +143,7 @@ class _AddressScreenState extends State<AddressScreen> {
                             ],
                           ),
                         ),
-                        
                         const SizedBox(height: 30),
-
-                        /// INFO NOTE
                         Row(
                           children: [
                             Icon(Icons.info_outline, color: primaryGold, size: 18),
@@ -117,25 +156,12 @@ class _AddressScreenState extends State<AddressScreen> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 50),
-
-                        /// SUBMIT BUTTON
                         SizedBox(
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: () {
-                              final input = _controller.text;
-                              if (input.isNotEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text("Address submitted: $input"),
-                                    backgroundColor: primaryGold,
-                                  ),
-                                );
-                              }
-                            },
+                            onPressed: _isValidating ? null : _handleContinue,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryGold,
                               foregroundColor: Colors.white,
@@ -144,10 +170,16 @@ class _AddressScreenState extends State<AddressScreen> {
                               ),
                               elevation: 0,
                             ),
-                            child: const Text(
-                              'CONTINUE',
-                              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
-                            ),
+                            child: _isValidating
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  )
+                                : const Text(
+                                    'CONTINUE',
+                                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                                  ),
                           ),
                         ),
                       ],
@@ -172,7 +204,7 @@ class _AddressScreenState extends State<AddressScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            'Send Funds',
+            'Enter Address',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,

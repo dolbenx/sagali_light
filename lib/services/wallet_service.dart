@@ -16,6 +16,9 @@ class WalletService {
   Wallet? get wallet => _wallet;
   Blockchain? _blockchain;
 
+  Wallet get getWallet => _wallet!;
+  Blockchain get getBlockchain => _blockchain!;
+
   /// AUTO-LOGIN: Checks if a mnemonic is saved and initializes BDK
   Future<bool> tryAutoLogin() async {
     try {
@@ -72,29 +75,7 @@ class WalletService {
     }
   }
 
-  /// RECOVERY HELPER: Just an alias for initializeWallet for code clarity
-  Future<String> recoverWallet(List<String> words) async {
-    return await initializeWallet(words);
-  }
-
-  /// GET NEW ADDRESS: Used by ReceiveScreen
-  Future<String> getNewAddress() async {
-    if (_wallet == null) throw Exception("Wallet not initialized");
-    final addressInfo = await _wallet!.getAddress(
-      addressIndex: const AddressIndex.lastUnused(),
-    );
-    return addressInfo.address;
-  }
-
-  Future<void> setPin(String pin) async {
-    await _storage.write(key: _pinKey, value: pin);
-  }
-  /// LOGOUT: Deletes the stored key so the user has to re-enter words or create new
-  Future<void> logout() async {
-    await _storage.delete(key: _mnemonicKey);
-    _wallet = null;
-  }
-
+  
   /// SYNC: Connects to the network to update balance and tx history
   Future<void> syncWallet() async {
     if (_wallet == null) return;
@@ -119,41 +100,64 @@ class WalletService {
   }
 
    Future<List<TransactionDetails>> getOnChainTransactions() async {
-  if (_wallet == null) return [];
+    if (_wallet == null) return [];
 
-  try {
-    final transactions = await _wallet!.listTransactions(false);
+    try {
+      final transactions = await _wallet!.listTransactions(false);
 
-    transactions.sort((a, b) {
-      // This helper ensures we ALWAYS return a BigInt to satisfy the sort
-      BigInt getSafeTime(BlockTime? time) {
-        if (time == null) {
-          // Use a massive number for pending txs to keep them at the top
-          return BigInt.from(8640000000); 
+      transactions.sort((a, b) {
+        // This helper ensures we ALWAYS return a BigInt to satisfy the sort
+        BigInt getSafeTime(BlockTime? time) {
+          if (time == null) {
+            // Use a massive number for pending txs to keep them at the top
+            return BigInt.from(8640000000); 
+          }
+
+          // We use 'dynamic' here because the BDK bridge varies between int/BigInt
+          final dynamic ts = time.timestamp;
+
+          if (ts is BigInt) {
+            return ts;
+          } else if (ts is int) {
+            return BigInt.from(ts);
+          } else {
+            return BigInt.from(0);
+          }
         }
 
-        // We use 'dynamic' here because the BDK bridge varies between int/BigInt
-        final dynamic ts = time.timestamp;
+        final aTime = getSafeTime(a.confirmationTime);
+        final bTime = getSafeTime(b.confirmationTime);
+        
+        return bTime.compareTo(aTime);
+      });
 
-        if (ts is BigInt) {
-          return ts;
-        } else if (ts is int) {
-          return BigInt.from(ts);
-        } else {
-          return BigInt.from(0);
-        }
-      }
-
-      final aTime = getSafeTime(a.confirmationTime);
-      final bTime = getSafeTime(b.confirmationTime);
-      
-      return bTime.compareTo(aTime);
-    });
-
-    return transactions;
-  } catch (e) {
-    debugPrint("Error fetching transactions: $e");
-    return [];
+      return transactions;
+    } catch (e) {
+      debugPrint("Error fetching transactions: $e");
+      return [];
+    }
   }
-}
+
+  /// RECOVERY HELPER: Just an alias for initializeWallet for code clarity
+  Future<String> recoverWallet(List<String> words) async {
+    return await initializeWallet(words);
+  }
+
+  /// GET NEW ADDRESS: Used by ReceiveScreen
+  Future<String> getNewAddress() async {
+    if (_wallet == null) throw Exception("Wallet not initialized");
+    final addressInfo = await _wallet!.getAddress(
+      addressIndex: const AddressIndex.lastUnused(),
+    );
+    return addressInfo.address;
+  }
+
+  Future<void> setPin(String pin) async {
+    await _storage.write(key: _pinKey, value: pin);
+  }
+  /// LOGOUT: Deletes the stored key so the user has to re-enter words or create new
+  Future<void> logout() async {
+    await _storage.delete(key: _mnemonicKey);
+    _wallet = null;
+  }
 }

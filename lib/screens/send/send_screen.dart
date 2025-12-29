@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'address_screen.dart';
 import '../../../main.dart'; // For primaryColor
+import 'confirm_send_screen.dart';
 
 class SendScreen extends StatefulWidget {
   const SendScreen({super.key});
@@ -38,10 +39,16 @@ class _SendScreenState extends State<SendScreen> {
   void _onQRViewCreated(QRViewController controller) {
     this.controller = controller;
     controller.scannedDataStream.listen((scanData) {
-      setState(() {
-        scannedData = scanData.code;
-      });
-      controller.pauseCamera();
+      if (scanData.code != null) {
+        controller.pauseCamera();
+        // Automatically navigate to confirmation when a code is found
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ConfirmSendScreen(recipientAddress: scanData.code!),
+          ),
+        ).then((_) => controller.resumeCamera());
+      }
     });
   }
 
