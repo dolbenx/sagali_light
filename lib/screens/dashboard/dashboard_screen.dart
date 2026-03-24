@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:async';
 import '../../services/wallet_service.dart'; // Ensure this path is correct
 import '../send/send_screen.dart';
 import '../receive/receive_screen.dart';
 import '../settings/settings_screen.dart';
 import '../transactions/transactions_screen.dart';
 import '../withdraw/withdraw_screen.dart';
+import '../../services/ldk_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,20 +20,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _btcBalance = "0.00000000";
   String _zmwBalance = "0.00";
   bool _isLoading = true;
+  
+
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refreshWallet();
+    
+    // Auto-refresh every 30 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _refreshWallet();
+    });
   }
 
-  @override
-  void dispose() {
-    // 3. Unregister the observer to prevent memory leaks
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
+ @override
+void dispose() {
+  _refreshTimer?.cancel(); // Critical: Stop the timer when leaving the screen
+  WidgetsBinding.instance.removeObserver(this);
+  super.dispose();
+}
 
   // 4. Handle the state change
   @override
@@ -52,43 +62,47 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   /// Syncs with the blockchain and updates the balance
   Future<void> _refreshWallet() async {
-  if (!mounted) return;
-  setState(() => _isLoading = true);
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
-  try {
-    final wallet = WalletService().wallet;
-    final blockchain = WalletService().getBlockchain;
+    try {
+      // Accessing the Singleton instances
+      final bdk = WalletService(); 
+      final ldk = LdkService(); // This works now!
 
-    if (wallet != null && blockchain != null) {
-      // 1. FORCE SYNC: This talks to the Electrum/Esplora server 
-      // to find new transactions and update balance.
-      await wallet.sync(blockchain);
+      int bdkSats = 0;
+      if (bdk.wallet != null) {
+        await bdk.wallet!.sync(bdk.getBlockchain);
+        final bdkBalance = await bdk.wallet!.getBalance();
+        bdkSats = bdkBalance.total;
+      }
 
-      // 2. Get the updated balance
-      final balance = await wallet.getBalance();
-      
-      // 3. Convert Satoshis (Total includes confirmed + trusted_pending)
-      final int totalSats = balance.total;
-      final double btcValue = totalSats / 100000000;
-      
-      // 4. Update the UI
-      setState(() {
-        // Display as Sats if you prefer (matching your Send screen)
-        // or keep as BTC string
-        _btcBalance = btcValue.toStringAsFixed(8);
+      int ldkSats = 0;
+      if (ldk.node != null) {
+        await ldk.node!.syncWallets();
+        // v0.1.2 specific method call
+        ldkSats = await ldk.node!.totalOnchainBalanceSats();
         
-        // Mock conversion to ZMW
-        _zmwBalance = (btcValue * 1500000).toStringAsFixed(2);
+        // Add Lightning channel capacity if needed
+        final channels = await ldk.node!.listChannels();
+        for (var channel in channels) {
+          ldkSats += (channel.outboundCapacityMsat ~/ 1000);
+        }
+      }
+
+      final int totalSats = bdkSats + ldkSats;
+      final double btcValue = totalSats / 100000000;
+
+      setState(() {
+        _btcBalance = btcValue.toStringAsFixed(8);
+        _zmwBalance = (btcValue * 1500000).toStringAsFixed(2); // Using your 1.5M rate
         _isLoading = false;
       });
-    }
-  } catch (e) {
-    debugPrint("Dashboard Sync Error: $e");
-    if (mounted) {
-      setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint("Dashboard Sync Error: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {

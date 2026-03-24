@@ -23,9 +23,9 @@ class WalletService {
   Future<bool> tryAutoLogin() async {
     try {
       String? savedMnemonic = await _storage.read(key: _mnemonicKey);
-      if (savedMnemonic != null && savedMnemonic.isNotEmpty) {
+      if (savedMnemonic != null && savedMnemonic.trim().isNotEmpty) {
         debugPrint("Found saved mnemonic, logging in...");
-        await initializeWallet(savedMnemonic.split(' '));
+        await initializeWallet(savedMnemonic.trim().split(' '));
         return true;
       }
     } catch (e) {
@@ -75,7 +75,6 @@ class WalletService {
     }
   }
 
-  
   /// SYNC: Connects to the network to update balance and tx history
   Future<void> syncWallet() async {
     if (_wallet == null) return;
@@ -99,21 +98,21 @@ class WalletService {
     }
   }
 
-   Future<List<TransactionDetails>> getOnChainTransactions() async {
+  /// GET TRANSACTIONS: Fetches and sorts on-chain history
+  Future<List<TransactionDetails>> getOnChainTransactions() async {
     if (_wallet == null) return [];
 
     try {
       final transactions = await _wallet!.listTransactions(false);
 
       transactions.sort((a, b) {
-        // This helper ensures we ALWAYS return a BigInt to satisfy the sort
+        // Helper to handle the timestamp regardless of it being int or BigInt
         BigInt getSafeTime(BlockTime? time) {
           if (time == null) {
-            // Use a massive number for pending txs to keep them at the top
+            // High value for pending txs to keep them at the top
             return BigInt.from(8640000000); 
           }
 
-          // We use 'dynamic' here because the BDK bridge varies between int/BigInt
           final dynamic ts = time.timestamp;
 
           if (ts is BigInt) {
@@ -138,6 +137,10 @@ class WalletService {
     }
   }
 
+  Future<String?> getMnemonic() async {
+    return await _storage.read(key: _mnemonicKey);
+  }
+
   /// RECOVERY HELPER: Just an alias for initializeWallet for code clarity
   Future<String> recoverWallet(List<String> words) async {
     return await initializeWallet(words);
@@ -155,6 +158,7 @@ class WalletService {
   Future<void> setPin(String pin) async {
     await _storage.write(key: _pinKey, value: pin);
   }
+
   /// LOGOUT: Deletes the stored key so the user has to re-enter words or create new
   Future<void> logout() async {
     await _storage.delete(key: _mnemonicKey);
