@@ -1,6 +1,8 @@
-import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 class WalletService {
   // Singleton pattern
@@ -8,18 +10,14 @@ class WalletService {
   factory WalletService() => _instance;
   WalletService._internal();
 
-  Wallet? _wallet;
+  BreezSdkLiquid? _sdk;
   final _storage = const FlutterSecureStorage();
   final String _mnemonicKey = 'sagali_mnemonic_phrase';
   final String _pinKey = "user_pin";
 
-  Wallet? get wallet => _wallet;
-  Blockchain? _blockchain;
+  BreezSdkLiquid? get sdk => _sdk;
 
-  Wallet get getWallet => _wallet!;
-  Blockchain get getBlockchain => _blockchain!;
-
-  /// AUTO-LOGIN: Checks if a mnemonic is saved and initializes BDK
+  /// AUTO-LOGIN: Checks if a mnemonic is saved and initializes
   Future<bool> tryAutoLogin() async {
     try {
       String? savedMnemonic = await _storage.read(key: _mnemonicKey);
@@ -37,127 +35,139 @@ class WalletService {
   /// INITIALIZE / RECOVER: Creates the wallet and saves it for future logins
   Future<String> initializeWallet(List<String> words) async {
     try {
-      // 1. Create the Mnemonic object
-      final mnemonic = await Mnemonic.fromString(words.join(' '));
+      final mnemonic = words.join(' ');
 
-      // 2. Generate the Descriptor Secret Key
-      final descriptorSecretKey = await DescriptorSecretKey.create(
-        network: Network.Testnet,
-        mnemonic: mnemonic,
+      final directory = await getApplicationDocumentsDirectory();
+      final workingDir = Directory('${directory.path}/breez_liquid');
+      if (!workingDir.existsSync()) {
+        workingDir.createSync(recursive: true);
+      }
+
+      // Ensure we use Mainnet by default
+      final defaultC = defaultConfig(network: LiquidNetwork.mainnet);
+      
+      final config = Config(
+        liquidExplorer: defaultC.liquidExplorer,
+        bitcoinExplorer: defaultC.bitcoinExplorer,
+        workingDir: workingDir.path,
+        network: LiquidNetwork.mainnet, // FORCE MAINNET
+        paymentTimeoutSec: defaultC.paymentTimeoutSec,
+        syncServiceUrl: defaultC.syncServiceUrl,
+        zeroConfMaxAmountSat: defaultC.zeroConfMaxAmountSat,
+        breezApiKey: 'MIIBbzCCASGgAwIBAgIHPgc3izOVkzAFBgMrZXAwEDEOMAwGA1UEAxMFQnJlZXowHhcNMjUwNDI5MTQ1MjQ5WhcNMzUwNDI3MTQ1MjQ5WjApMRYwFAYDVQQKEw1TZWxmIEVtcGxveWVkMQ8wDQYDVQQDEwZEYXZpZXMwKjAFBgMrZXADIQDQg/XL3yA8HKIgyimHU/Qbpxy0tvzris1fDUtEs6ldd6OBgDB+MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTaOaPuXmtLDTJVv++VYBiQr9gHCTAfBgNVHSMEGDAWgBTeqtaSVvON53SSFvxMtiCyayiYazAeBgNVHREEFzAVgRNkb2xiZW44MDBAZ21haWwuY29tMAUGAytlcANBAEqOtvtp1I4Rx/QgM7uI/et7GcSxRpYJ3UIpkzAxfMes4ffL5crjmgC3KK0ScolI7kx7u4Frb85DYfE3zgw8CQY=',
+        externalInputParsers: defaultC.externalInputParsers,
+        useDefaultExternalInputParsers: defaultC.useDefaultExternalInputParsers,
+        onchainFeeRateLeewaySat: defaultC.onchainFeeRateLeewaySat,
+        assetMetadata: defaultC.assetMetadata,
+        sideswapApiKey: defaultC.sideswapApiKey,
+        useMagicRoutingHints: defaultC.useMagicRoutingHints,
+        onchainSyncPeriodSec: defaultC.onchainSyncPeriodSec,
+        onchainSyncRequestTimeoutSec: defaultC.onchainSyncRequestTimeoutSec,
       );
 
-      // 3. Create a SegWit (BIP84) External Descriptor
-      final externalDescriptor = await Descriptor.newBip84(
-        secretKey: descriptorSecretKey,
-        network: Network.Testnet,
-        keychain: KeychainKind.External,
-      );
+      final req = ConnectRequest(config: config, mnemonic: mnemonic);
+      
+      try {
+        _sdk = await connect(req: req);
+      } catch (e) {
+        // If it fails with a network mismatch, try to clear the working directory and retry once
+        if (e.toString().contains("networkNotSupported") || e.toString().contains("NetworkMismatch")) {
+          debugPrint("Network mismatch detected. Clearing directory and retrying...");
+          if (workingDir.existsSync()) {
+            workingDir.deleteSync(recursive: true);
+            workingDir.createSync(recursive: true);
+          }
+          _sdk = await connect(req: req);
+        } else {
+          rethrow;
+        }
+      }
 
-      // 4. Create the Wallet instance
-      _wallet = await Wallet.create(
-        descriptor: externalDescriptor,
-        network: Network.Testnet,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
+      // SECURE STORAGE: Save the phrase for Login persistence
+      await _storage.write(key: _mnemonicKey, value: mnemonic);
 
-      // 5. SECURE STORAGE: Save the phrase for Login persistence
-      await _storage.write(key: _mnemonicKey, value: words.join(' '));
-
-      final addressInfo = await _wallet!.getAddress(
-        addressIndex: const AddressIndex.lastUnused(),
-      );
-
-      debugPrint("Wallet Active. Address: ${addressInfo.address}");
-      return addressInfo.address;
+      final walletInfo = await _sdk!.getInfo();
+      debugPrint("Wallet Active. Pubkey: ${walletInfo.walletInfo.pubkey}");
+      
+      // Return a Liquid address as the default
+      return await getNewAddress();
     } catch (e) {
-      debugPrint("BDK Initialization Error: $e");
+      debugPrint("Breez Liquid Initialization Error: $e");
       rethrow;
     }
   }
 
-  
   /// SYNC: Connects to the network to update balance and tx history
   Future<void> syncWallet() async {
-    if (_wallet == null) return;
+    if (_sdk == null) return;
     try {
-      _blockchain ??= await Blockchain.create(
-        config: BlockchainConfig.electrum(
-          config: ElectrumConfig(
-            url: 'ssl://electrum.blockstream.info:60002',
-            retry: 5,
-            timeout: 5,
-            stopGap: 10,
-            validateDomain: true,
-          ),
-        ),
-      );
-      
-      await _wallet!.sync(_blockchain!);
+      await _sdk!.sync();
       debugPrint("Sync Successful");
     } catch (e) {
       debugPrint("Sync Error: $e");
     }
   }
 
-   Future<List<TransactionDetails>> getOnChainTransactions() async {
-    if (_wallet == null) return [];
+   Future<List<Payment>> getOnChainTransactions() async {
+    if (_sdk == null) return [];
 
     try {
-      final transactions = await _wallet!.listTransactions(false);
+      // Empty request gets all payments
+      final transactions = await _sdk!.listPayments(req: const ListPaymentsRequest());
 
-      transactions.sort((a, b) {
-        // This helper ensures we ALWAYS return a BigInt to satisfy the sort
-        BigInt getSafeTime(BlockTime? time) {
-          if (time == null) {
-            // Use a massive number for pending txs to keep them at the top
-            return BigInt.from(8640000000); 
-          }
-
-          // We use 'dynamic' here because the BDK bridge varies between int/BigInt
-          final dynamic ts = time.timestamp;
-
-          if (ts is BigInt) {
-            return ts;
-          } else if (ts is int) {
-            return BigInt.from(ts);
-          } else {
-            return BigInt.from(0);
-          }
-        }
-
-        final aTime = getSafeTime(a.confirmationTime);
-        final bTime = getSafeTime(b.confirmationTime);
-        
+      var modifiableList = List<Payment>.from(transactions);
+      modifiableList.sort((a, b) {
+        final aTime = a.timestamp;
+        final bTime = b.timestamp;
         return bTime.compareTo(aTime);
       });
 
-      return transactions;
+      return modifiableList;
     } catch (e) {
       debugPrint("Error fetching transactions: $e");
       return [];
     }
   }
 
-  /// RECOVERY HELPER: Just an alias for initializeWallet for code clarity
-  Future<String> recoverWallet(List<String> words) async {
-    return await initializeWallet(words);
+  /// GET LIQUID ADDRESS: Used by ReceiveScreen
+  Future<String> getNewAddress() async {
+    if (_sdk == null) throw Exception("Wallet not initialized");
+    final reqReceive = PrepareReceiveRequest(paymentMethod: PaymentMethod.bitcoinAddress);
+    final receiveRes = await _sdk!.prepareReceivePayment(req: reqReceive);
+    final finalRes = await _sdk!.receivePayment(req: ReceivePaymentRequest(prepareResponse: receiveRes));
+    return finalRes.destination;
   }
 
-  /// GET NEW ADDRESS: Used by ReceiveScreen
-  Future<String> getNewAddress() async {
-    if (_wallet == null) throw Exception("Wallet not initialized");
-    final addressInfo = await _wallet!.getAddress(
-      addressIndex: const AddressIndex.lastUnused(),
+  /// GET LIGHTNING INVOICE: Used by ReceiveScreen
+  Future<String> getLightningInvoice(BigInt amountSats, {String? description}) async {
+    if (_sdk == null) throw Exception("Wallet not initialized");
+    
+    final effectiveAmount = amountSats > BigInt.zero ? amountSats : BigInt.from(1000); 
+    
+    final reqReceive = PrepareReceiveRequest(
+      paymentMethod: PaymentMethod.bolt11Invoice,
+      amount: ReceiveAmount.bitcoin(payerAmountSat: effectiveAmount),
     );
-    return addressInfo.address;
+    
+    final receiveRes = await _sdk!.prepareReceivePayment(req: reqReceive);
+    final finalRes = await _sdk!.receivePayment(req: ReceivePaymentRequest(
+      prepareResponse: receiveRes,
+      description: description,
+    ));
+    
+    return finalRes.destination;
   }
 
   Future<void> setPin(String pin) async {
     await _storage.write(key: _pinKey, value: pin);
   }
+
   /// LOGOUT: Deletes the stored key so the user has to re-enter words or create new
   Future<void> logout() async {
     await _storage.delete(key: _mnemonicKey);
-    _wallet = null;
+    if (_sdk != null) {
+      await _sdk!.disconnect();
+    }
+    _sdk = null;
   }
 }

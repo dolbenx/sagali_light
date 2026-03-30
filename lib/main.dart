@@ -3,9 +3,12 @@ import 'screens/splash/splash_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart'; // Ensure this path is correct
 import 'services/wallet_service.dart';
 
+import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
+
 void main() async {
   // Required for async calls before runApp
   WidgetsFlutterBinding.ensureInitialized();
+  await FlutterBreezLiquid.init();
 
   // Try to auto-login if a mnemonic is already saved
   final walletService = WalletService();

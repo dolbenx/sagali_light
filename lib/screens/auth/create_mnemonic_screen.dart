@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bip39/bip39.dart' as bip39;
 import 'dart:ui';
 import 'verify_mnemonic_screen.dart';
 
@@ -23,14 +23,14 @@ class _CreateMnemonicScreenState extends State<CreateMnemonicScreen> {
     _generateNewMnemonic();
   }
 
-  // Generate 24 words using BDK
+  // Generate 24 words using bip39
   Future<void> _generateNewMnemonic() async {
     setState(() => _isLoading = true);
     try {
-      // BDK default is 12 words; we specify WordCount.Words24
-      final mnemonic = await Mnemonic.create(WordCount.Words24);
+      // 256 bits of entropy = 24 words
+      final mnemonicStr = bip39.generateMnemonic(strength: 256);
       setState(() {
-        _mnemonicWords = mnemonic.asString().split(' ');
+        _mnemonicWords = mnemonicStr.split(' ');
         _isLoading = false;
       });
     } catch (e) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:bdk_flutter/bdk_flutter.dart' as bdk;
+import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 import 'dart:ui';
 import '../../services/wallet_service.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -12,7 +12,7 @@ class TransactionsScreen extends StatelessWidget {
   final Color primaryGold = const Color(0xFFBE8345);
   final Color bgColor = const Color(0xFF0E1A2B);
 
-  Future<List<bdk.TransactionDetails>> _getHistory() async {
+  Future<List<Payment>> _getHistory() async {
     try {
       await WalletService().syncWallet();
       return await WalletService().getOnChainTransactions();
@@ -35,7 +35,7 @@ class TransactionsScreen extends StatelessWidget {
                 _buildHeader(context),
                 const SizedBox(height: 10),
                 Expanded(
-                  child: FutureBuilder<List<bdk.TransactionDetails>>(
+                  child: FutureBuilder<List<Payment>>(
                     future: _getHistory(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -55,27 +55,13 @@ class TransactionsScreen extends StatelessWidget {
                         );
                       }
 
-                      // FIX: Safe sorting logic that handles both int and BigInt types
-                      transactions.sort((a, b) {
-                        BigInt extractTime(dynamic tx) {
-                          final timestamp = tx.confirmationTime?.timestamp;
-                          if (timestamp == null) return BigInt.from(8640000000);
-                          // Safely convert to BigInt regardless of input type
-                          return timestamp is BigInt ? timestamp : BigInt.from(timestamp as int);
-                        }
-
-                        final aTime = extractTime(a);
-                        final bTime = extractTime(b);
-                        return bTime.compareTo(aTime);
-                      });
-
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         physics: const BouncingScrollPhysics(),
                         itemCount: transactions.length + 1,
                         itemBuilder: (context, index) {
                           if (index == transactions.length) return const SizedBox(height: 100);
-                          return _buildOnChainTile(transactions[index]);
+                          return _buildPaymentTile(transactions[index]);
                         },
                       );
                     },
@@ -90,25 +76,51 @@ class TransactionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOnChainTile(bdk.TransactionDetails tx) {
-    // 1. Logic for Net Amount (Received - Sent)
-    // We use .toBigInt() or direct subtraction depending on your BDK version
-    final BigInt received = BigInt.from(tx.received);
-    final BigInt sent = BigInt.from(tx.sent);
-    
-    final bool isReceived = received > sent;
-    final BigInt netAmountSats = isReceived ? (received - sent) : (sent - received);
-    
-    // 2. Convert Satoshis to BTC decimal string
-    final double btcValue = netAmountSats.toDouble() / 100000000;
+  Widget _buildPaymentTile(Payment tx) {
+    final bool isReceived = tx.paymentType == PaymentType.receive;
+    final double btcValue = tx.amountSat.toDouble() / 100000000;
     final String amountLabel = "${isReceived ? '+' : '-'} ${btcValue.toStringAsFixed(8)} BTC";
+
+    // Determine subtitle from payment details and status
+    String subtitle;
+    switch (tx.status) {
+      case PaymentState.pending:
+      case PaymentState.created:
+        subtitle = 'Pending Confirmation';
+        break;
+      case PaymentState.complete:
+        final date = DateTime.fromMillisecondsSinceEpoch(tx.timestamp * 1000);
+        subtitle = 'Confirmed on ${date.day}/${date.month}/${date.year}';
+        break;
+      case PaymentState.failed:
+      case PaymentState.timedOut:
+        subtitle = 'Failed';
+        break;
+      default:
+        subtitle = 'Processing...';
+    }
+
+    // Determine payment label from details
+    String title = isReceived ? 'Received' : 'Sent';
+    tx.details.when(
+      lightning: (swapId, description, liquidExpirationBlockheight, preimage, invoice, 
+                  bolt12Offer, paymentHash, destinationPubkey, lnurlInfo, bip353Address, 
+                  payerNote, claimTxId, refundTxId, refundTxAmountSat) {
+        title = isReceived ? 'Received via Lightning' : 'Sent via Lightning';
+      },
+      liquid: (destination, description, assetId, assetInfo, lnurlInfo, bip353Address, payerNote) {
+        title = isReceived ? 'Received (Liquid)' : 'Sent (Liquid)';
+      },
+      bitcoin: (swapId, bitcoinAddress, description, autoAcceptedFees, liquidExpirationBlockheight,
+                bitcoinExpirationBlockheight, lockupTxId, claimTxId, refundTxId, refundTxAmountSat) {
+        title = isReceived ? 'Received Bitcoin' : 'Sent Bitcoin';
+      },
+    );
 
     return TransactionTile(
       icon: isReceived ? FontAwesomeIcons.arrowDown : FontAwesomeIcons.arrowUp,
-      title: isReceived ? 'Received Bitcoin' : 'Sent Bitcoin',
-      subtitle: tx.confirmationTime == null 
-          ? 'Pending Confirmation' 
-          : 'Confirmed at block ${tx.confirmationTime!.height}',
+      title: title,
+      subtitle: subtitle,
       amount: amountLabel,
       isExpense: !isReceived,
     );

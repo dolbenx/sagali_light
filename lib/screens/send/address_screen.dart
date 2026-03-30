@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:bdk_flutter/bdk_flutter.dart' as bdk; // Import BDK
-import 'confirm_send_screen.dart'; // Import your confirm screen
+import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
+import '../../services/wallet_service.dart';
+import 'confirm_send_screen.dart';
 
 class AddressScreen extends StatefulWidget {
   const AddressScreen({super.key});
@@ -37,9 +38,20 @@ class _AddressScreenState extends State<AddressScreen> {
     try {
       final cleanAddr = _cleanAddress(rawInput);
 
-      // Verify if the address is valid for the network
-      // This catches the "Base58/Bech32 encoding error" here instead of the next screen
-      await bdk.Address.create(address: cleanAddr);
+      final sdk = WalletService().sdk;
+      if (sdk == null) throw "Wallet not initialized.";
+
+      // Use Breez SDK to validate/parse the input (Lightning invoice, BTC or Liquid address)
+      final inputType = await sdk.parse(input: cleanAddr);
+
+      // Only allow supported types
+      final isSupported = inputType is InputType_Bolt11 ||
+          inputType is InputType_BitcoinAddress ||
+          inputType is InputType_LiquidAddress;
+
+      if (!isSupported) {
+        throw "Unsupported address type. Please enter a Lightning invoice, Bitcoin or Liquid address.";
+      }
 
       if (mounted) {
         Navigator.push(
@@ -53,7 +65,7 @@ class _AddressScreenState extends State<AddressScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Invalid Bitcoin Address: $e"),
+            content: Text("Invalid Address: ${e.toString().replaceAll('Exception:', '').trim()}"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -98,7 +110,7 @@ class _AddressScreenState extends State<AddressScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Lightning Invoice or BTC Address",
+                          "Lightning Invoice, BTC or Liquid Address",
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:bdk_flutter/bdk_flutter.dart'; // Ensure bdk_flutter is imported
-import 'create_mnemonic_screen.dart'; // The screen showing the 24 words
+import 'package:bip39/bip39.dart' as bip39;
+import 'create_mnemonic_screen.dart';
 import 'recover_wallet_screen.dart';
 
 class AuthChoiceScreen extends StatelessWidget {
@@ -9,13 +9,13 @@ class AuthChoiceScreen extends StatelessWidget {
   /// Logic to generate mnemonic and navigate
   Future<void> _handleCreateWallet(BuildContext context) async {
     try {
-      // 1. Generate the 24-word mnemonic using BDK
-      final mnemonic = await Mnemonic.create(WordCount.Words24);
-      final List<String> words = mnemonic.asString().split(' ');
+      // Generate 24-word mnemonic using bip39 (256 bits entropy)
+      final mnemonicStr = bip39.generateMnemonic(strength: 256);
+      final List<String> words = mnemonicStr.split(' ');
 
       if (!context.mounted) return;
 
-      // 2. Navigate to the display screen with the generated words
+      // Navigate to the display screen with the generated words
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -23,7 +23,6 @@ class AuthChoiceScreen extends StatelessWidget {
         ),
       );
     } catch (e) {
-      // Handle potential generation errors
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error generating wallet: $e")),
       );

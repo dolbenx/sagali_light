@@ -56,31 +56,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   setState(() => _isLoading = true);
 
   try {
-    final wallet = WalletService().wallet;
-    final blockchain = WalletService().getBlockchain;
+    final sdk = WalletService().sdk;
 
-    if (wallet != null && blockchain != null) {
-      // 1. FORCE SYNC: This talks to the Electrum/Esplora server 
-      // to find new transactions and update balance.
-      await wallet.sync(blockchain);
+    if (sdk != null) {
+      // 1. SYNC with the Liquid/Bitcoin network
+      await sdk.sync();
 
-      // 2. Get the updated balance
-      final balance = await wallet.getBalance();
-      
-      // 3. Convert Satoshis (Total includes confirmed + trusted_pending)
-      final int totalSats = balance.total;
-      final double btcValue = totalSats / 100000000;
-      
-      // 4. Update the UI
-      setState(() {
-        // Display as Sats if you prefer (matching your Send screen)
-        // or keep as BTC string
-        _btcBalance = btcValue.toStringAsFixed(8);
-        
-        // Mock conversion to ZMW
-        _zmwBalance = (btcValue * 1500000).toStringAsFixed(2);
-        _isLoading = false;
-      });
+      // 2. Get the updated wallet info (balance)
+      final info = await sdk.getInfo();
+      final BigInt balanceSat = info.walletInfo.balanceSat;
+      final double btcValue = balanceSat.toDouble() / 100000000;
+
+      // 3. Update the UI
+      if (mounted) {
+        setState(() {
+          _btcBalance = btcValue.toStringAsFixed(8);
+          // Mock conversion to ZMW
+          _zmwBalance = (btcValue * 1500000).toStringAsFixed(2);
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
     }
   } catch (e) {
     debugPrint("Dashboard Sync Error: $e");
@@ -113,56 +110,63 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             child: RefreshIndicator(
               onRefresh: _refreshWallet,
               color: const Color(0xFFBE8345),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 20),
-                    Image.asset('assets/images/bolt.png', width: 45, fit: BoxFit.contain, 
-                      errorBuilder: (c, e, s) => const Icon(Icons.bolt, color: Color(0xFFBE8345), size: 45)),
-                    const SizedBox(height: 10),
-                    const Text("SAGALI", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                    const Text("LIGHTNING", style: TextStyle(color: Color(0xFFBE8345), fontSize: 22, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 10),
-                    _payBadge(),
-                    const SizedBox(height: 40),
-                    
-                    /// Updated Balance Section
-                    _isLoading 
-                      ? const CircularProgressIndicator(color: Color(0xFFBE8345))
-                      : _balanceSection(),
-                      
-                    const SizedBox(height: 40),
-                    const Text("Lightning", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 20),
-                    _actionButton(
-                      context: context,
-                      label: "Send",
-                      icon: Icons.call_made,
-                      background: Colors.white,
-                      textColor: Colors.blue,
-                      onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (context) => const SendScreen()));
-                        _refreshWallet();
-                      },
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 40),
+                          _isLoading 
+                            ? const CircularProgressIndicator(color: Color(0xFFBE8345))
+                            : _balanceSection(),
+                            
+                          const SizedBox(height: 40),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _actionButton(
+                                    context: context,
+                                    label: "Send",
+                                    icon: Icons.call_made,
+                                    background: Colors.white,
+                                    textColor: const Color(0xFF0E1A2B),
+                                    onTap: () async {
+                                      await Navigator.push(context, MaterialPageRoute(builder: (context) => const SendScreen()));
+                                      _refreshWallet();
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _actionButton(
+                                    context: context,
+                                    label: "Receive",
+                                    icon: Icons.call_received,
+                                    background: const Color(0xFFBE8345),
+                                    textColor: Colors.white,
+                                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReceiveScreen())),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                          const Text("Funds Transfer", style: TextStyle(color: Colors.white, fontSize: 16)),
+                          const SizedBox(height: 16),
+                          _withdrawButton(context),
+                          const SizedBox(height: 100), 
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    _actionButton(
-                      context: context,
-                      label: "Receive",
-                      icon: Icons.call_received,
-                      background: const Color(0xFFBE8345),
-                      textColor: Colors.white,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReceiveScreen())),
-                    ),
-                    const SizedBox(height: 30),
-                    const Text("Mobile Networks", style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    const SizedBox(height: 20),
-                    _withdrawButton(context),
-                    const SizedBox(height: 120), 
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -174,22 +178,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _payBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBE8345)),
-      ),
-      child: const Text("PAY", style: TextStyle(color: Color(0xFFBE8345), fontWeight: FontWeight.bold)),
-    );
-  }
-
   Widget _balanceSection() {
     return Column(
       children: [
-        const Text("BALANCE", style: TextStyle(color: Colors.white70, letterSpacing: 1.2)),
-        const SizedBox(height: 10),
         RichText(
           text: TextSpan(
             children: [
@@ -202,11 +193,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_btcBalance, style: const TextStyle(color: Colors.white70)),
-            const SizedBox(width: 6),
-            const Icon(Icons.currency_bitcoin, color: Color(0xFFBE8345), size: 18),
-            const SizedBox(width: 6),
-            const Icon(Icons.bolt, color: Color(0xFFBE8345), size: 18),
+            Text(_btcBalance, style: const TextStyle(color: Colors.white70, fontSize: 23)),
+            const Text(
+              " BTC", 
+              style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)
+            ),
           ],
         ),
       ],
@@ -225,7 +216,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
           ),
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WithdrawScreen())),
-          child: const Text("WITHDRAW MONEY", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          child: const Text("Mobile Wallet", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
         ),
       ),
     );
@@ -263,24 +254,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   static Widget _actionButton({required BuildContext context, required String label, required IconData icon, required Color background, required Color textColor, required VoidCallback onTap}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
-          child: Container(
-            height: 50,
-            decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(30)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: textColor),
-                const SizedBox(width: 8),
-                Text(label, style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(30),
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            color: background, 
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: textColor, size: 20),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
           ),
         ),
       ),
