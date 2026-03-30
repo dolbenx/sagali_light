@@ -3,23 +3,107 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 import 'dart:ui';
 import '../../services/wallet_service.dart';
+import '../../services/ldk_service.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../settings/settings_screen.dart';
 
-class TransactionsScreen extends StatelessWidget {
+/// 1. UNIFIED TRANSACTION MODEL
+/// This allows us to mix BDK and LDK data into one list
+class SagaliTransaction {
+  final String title;
+  final String subtitle;
+  final String amount;
+  final bool isExpense;
+  final bool isLightning;
+  final DateTime timestamp;
+  final String id;
+
+  SagaliTransaction({
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.isExpense,
+    required this.isLightning,
+    required this.timestamp,
+    required this.id,
+  });
+}
+
+class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
 
+  @override
+  State<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends State<TransactionsScreen> {
   final Color primaryGold = const Color(0xFFBE8345);
   final Color bgColor = const Color(0xFF0E1A2B);
 
   Future<List<Payment>> _getHistory() async {
     try {
-      await WalletService().syncWallet();
-      return await WalletService().getOnChainTransactions();
+      // --- PART A: ON-CHAIN (BDK) ---
+      final bdkService = WalletService();
+      await bdkService.syncWallet();
+      final onChainTxs = await bdkService.getOnChainTransactions();
+
+      for (var tx in onChainTxs) {
+        final isReceived = tx.received > tx.sent;
+        final sats = isReceived ? (tx.received - tx.sent) : (tx.sent - tx.received);
+        final btc = sats / 100000000;
+
+        // Extract timestamp safely
+        int ts = 0;
+        final rawTs = tx.confirmationTime?.timestamp;
+        if (rawTs != null) {
+          ts = rawTs is BigInt ? rawTs.toInt() : rawTs as int;
+        }
+
+        combinedList.add(SagaliTransaction(
+          id: tx.txid,
+          title: isReceived ? 'Received Bitcoin' : 'Sent Bitcoin',
+          subtitle: tx.confirmationTime == null ? 'Pending Confirmation' : 'Confirmed On-chain',
+          amount: "${isReceived ? '+' : '-'} ${btc.toStringAsFixed(8)} BTC",
+          isExpense: !isReceived,
+          isLightning: false,
+          timestamp: DateTime.fromMillisecondsSinceEpoch(ts * 1000),
+        ));
+      }
+
+      // --- PART B: LIGHTNING (LDK) ---
+      final ldkService = LdkService();
+      if (ldkService.node != null) {
+        final payments = await ldkService.node!.listPayments();
+        for (var p in payments) {
+          // Skip failed attempts to keep the list clean
+          if (p.status == ldk.PaymentStatus.Failed) continue;
+
+          final isExpense = p.direction == ldk.PaymentDirection.Outbound;
+          final sats = (p.amountMsat ?? 0) ~/ 1000;
+
+          combinedList.add(SagaliTransaction(
+            id: p.hash.toString(),
+            title: isExpense ? 'Lightning Sent' : 'Lightning Received',
+            subtitle: p.status == ldk.PaymentStatus.Pending ? 'In Progress' : 'Lightning Payment',
+            amount: "${isExpense ? '-' : '+'} $sats SATS",
+            isExpense: isExpense,
+            isLightning: true,
+            // LDK 0.1.2 listPayments doesn't always expose timestamp in the basic object
+            // We'll use current time if it's missing, or you can map it from your own DB
+            timestamp: DateTime.now(), 
+          ));
+        }
+      }
+
+      // --- PART C: SORTING ---
+      // Newest transactions at the top
+      combinedList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
     } catch (e) {
-      debugPrint("Sync error: $e");
-      return [];
+      debugPrint("Full History Sync Error: $e");
     }
+
+    return combinedList;
   }
 
   @override
@@ -39,19 +123,14 @@ class TransactionsScreen extends StatelessWidget {
                     future: _getHistory(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(color: Color(0xFFBE8345)),
-                        );
+                        return const Center(child: CircularProgressIndicator(color: Color(0xFFBE8345)));
                       }
 
                       final transactions = snapshot.data ?? [];
 
                       if (transactions.isEmpty) {
                         return const Center(
-                          child: Text(
-                            "No transaction history found",
-                            style: TextStyle(color: Colors.white38),
-                          ),
+                          child: Text("No activity found", style: TextStyle(color: Colors.white38)),
                         );
                       }
 
@@ -126,7 +205,6 @@ class TransactionsScreen extends StatelessWidget {
     );
   }
 
-  // ... (Header and Nav methods remain the same)
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -137,7 +215,7 @@ class TransactionsScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            'Transaction History',
+            'Activity',
             style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
         ],
@@ -183,53 +261,6 @@ class TransactionsScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ... (TransactionTile and _NavItem classes remain the same)
-class TransactionTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String amount;
-  final bool isExpense;
-
-  const TransactionTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.isExpense,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: CircleAvatar(
-          backgroundColor: isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-          child: FaIcon(icon, color: isExpense ? Colors.redAccent : Colors.greenAccent, size: 18),
-        ),
-        title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-        trailing: Text(
-          amount,
-          style: TextStyle(
-            color: isExpense ? Colors.redAccent : Colors.greenAccent,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
           ),
         ),
       ),

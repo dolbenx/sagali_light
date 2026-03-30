@@ -41,16 +41,29 @@ class _SendScreenState extends State<SendScreen> {
     controller.scannedDataStream.listen((scanData) {
       if (scanData.code != null) {
         controller.pauseCamera();
-        // Automatically navigate to confirmation when a code is found
+        
+        String rawData = scanData.code!;
+        
+        // Clean the data (remove URI prefixes if present)
+        String cleanData = rawData.toLowerCase();
+        if (cleanData.startsWith('lightning:')) {
+          cleanData = cleanData.replaceFirst('lightning:', '');
+        } else if (cleanData.startsWith('bitcoin:')) {
+          cleanData = cleanData.split('?').first.replaceFirst('bitcoin:', '');
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ConfirmSendScreen(recipientAddress: scanData.code!),
+          builder: (_) => ConfirmSendScreen(
+            recipientAddress: cleanData,
+            isLightning: cleanData.startsWith('ln'), // Simple detection
           ),
-        ).then((_) => controller.resumeCamera());
-      }
-    });
-  }
+        ),
+      ).then((_) => controller.resumeCamera());
+    }
+  });
+}
 
   @override
   Widget build(BuildContext context) {

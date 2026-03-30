@@ -195,10 +195,17 @@ packages:
     dependency: transitive
     description:
       name: flutter_rust_bridge
+<<<<<<< HEAD
       sha256: "37ef40bc6f863652e865f0b2563ea07f0d3c58d8efad803cc01933a4b2ee067e"
       url: "https://pub.dev"
     source: hosted
     version: "2.11.1"
+=======
+      sha256: "7c5e94d037ccb0de7b5f7de3ff2491548d292b5aad01b01f5a5703f8aac9389b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.82.4"
+>>>>>>> e34dfed3bae063b5d34db602f21bd01f3e39913c
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -329,6 +336,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.9.0"
+  ldk_node:
+    dependency: "direct main"
+    description:
+      name: ldk_node
+      sha256: "4818a4fe6e54657f5c1bd21ca0c381dc847cc71d29a922d09c75551eef12bfb8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.2"
   leak_tracker:
     dependency: transitive
     description:
@@ -766,6 +781,25 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.10"
+<<<<<<< HEAD
+=======
+  timing:
+    dependency: transitive
+    description:
+      name: timing
+      sha256: "62ee18aca144e4a9f29d212f5a4c6a053be252b895ab14b5821996cff4ed90fe"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
+  tuple:
+    dependency: transitive
+    description:
+      name: tuple
+      sha256: a97ce2013f240b2f3807bcbaf218765b6f301c3eff91092bcfa23a039e7dd151
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.2"
+>>>>>>> e34dfed3bae063b5d34db602f21bd01f3e39913c
   typed_data:
     dependency: transitive
     description:

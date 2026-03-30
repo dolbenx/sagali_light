@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:async';
 import '../../services/wallet_service.dart'; // Ensure this path is correct
 import '../send/send_screen.dart';
 import '../receive/receive_screen.dart';
 import '../settings/settings_screen.dart';
 import '../transactions/transactions_screen.dart';
 import '../withdraw/withdraw_screen.dart';
+import '../../services/ldk_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,20 +20,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _btcBalance = "0.00000000";
   String _zmwBalance = "0.00";
   bool _isLoading = true;
+  
+
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refreshWallet();
+    
+    // Auto-refresh every 30 seconds
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _refreshWallet();
+    });
   }
 
-  @override
-  void dispose() {
-    // 3. Unregister the observer to prevent memory leaks
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
+ @override
+void dispose() {
+  _refreshTimer?.cancel(); // Critical: Stop the timer when leaving the screen
+  WidgetsBinding.instance.removeObserver(this);
+  super.dispose();
+}
 
   // 4. Handle the state change
   @override
@@ -52,8 +62,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   /// Syncs with the blockchain and updates the balance
   Future<void> _refreshWallet() async {
-  if (!mounted) return;
-  setState(() => _isLoading = true);
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
   try {
     final sdk = WalletService().sdk;
@@ -85,7 +95,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       setState(() => _isLoading = false);
     }
   }
-}
 
   @override
   Widget build(BuildContext context) {

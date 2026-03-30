@@ -21,9 +21,9 @@ class WalletService {
   Future<bool> tryAutoLogin() async {
     try {
       String? savedMnemonic = await _storage.read(key: _mnemonicKey);
-      if (savedMnemonic != null && savedMnemonic.isNotEmpty) {
+      if (savedMnemonic != null && savedMnemonic.trim().isNotEmpty) {
         debugPrint("Found saved mnemonic, logging in...");
-        await initializeWallet(savedMnemonic.split(' '));
+        await initializeWallet(savedMnemonic.trim().split(' '));
         return true;
       }
     } catch (e) {
@@ -108,17 +108,48 @@ class WalletService {
     }
   }
 
+<<<<<<< HEAD
    Future<List<Payment>> getOnChainTransactions() async {
     if (_sdk == null) return [];
+=======
+  /// GET TRANSACTIONS: Fetches and sorts on-chain history
+  Future<List<TransactionDetails>> getOnChainTransactions() async {
+    if (_wallet == null) return [];
+>>>>>>> e34dfed3bae063b5d34db602f21bd01f3e39913c
 
     try {
       // Empty request gets all payments
       final transactions = await _sdk!.listPayments(req: const ListPaymentsRequest());
 
+<<<<<<< HEAD
       var modifiableList = List<Payment>.from(transactions);
       modifiableList.sort((a, b) {
         final aTime = a.timestamp;
         final bTime = b.timestamp;
+=======
+      transactions.sort((a, b) {
+        // Helper to handle the timestamp regardless of it being int or BigInt
+        BigInt getSafeTime(BlockTime? time) {
+          if (time == null) {
+            // High value for pending txs to keep them at the top
+            return BigInt.from(8640000000); 
+          }
+
+          final dynamic ts = time.timestamp;
+
+          if (ts is BigInt) {
+            return ts;
+          } else if (ts is int) {
+            return BigInt.from(ts);
+          } else {
+            return BigInt.from(0);
+          }
+        }
+
+        final aTime = getSafeTime(a.confirmationTime);
+        final bTime = getSafeTime(b.confirmationTime);
+        
+>>>>>>> e34dfed3bae063b5d34db602f21bd01f3e39913c
         return bTime.compareTo(aTime);
       });
 
@@ -129,6 +160,7 @@ class WalletService {
     }
   }
 
+<<<<<<< HEAD
   /// GET LIQUID ADDRESS: Used by ReceiveScreen
   Future<String> getNewAddress() async {
     if (_sdk == null) throw Exception("Wallet not initialized");
@@ -136,6 +168,15 @@ class WalletService {
     final receiveRes = await _sdk!.prepareReceivePayment(req: reqReceive);
     final finalRes = await _sdk!.receivePayment(req: ReceivePaymentRequest(prepareResponse: receiveRes));
     return finalRes.destination;
+=======
+  Future<String?> getMnemonic() async {
+    return await _storage.read(key: _mnemonicKey);
+  }
+
+  /// RECOVERY HELPER: Just an alias for initializeWallet for code clarity
+  Future<String> recoverWallet(List<String> words) async {
+    return await initializeWallet(words);
+>>>>>>> e34dfed3bae063b5d34db602f21bd01f3e39913c
   }
 
   /// GET LIGHTNING INVOICE: Used by ReceiveScreen

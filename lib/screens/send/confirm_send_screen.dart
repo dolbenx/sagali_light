@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 import '../../services/wallet_service.dart';
+import '../../services/ldk_service.dart';
 
 class ConfirmSendScreen extends StatefulWidget {
   final String recipientAddress;
-  const ConfirmSendScreen({super.key, required this.recipientAddress});
+  final bool isLightning;
+
+  const ConfirmSendScreen({
+    super.key,
+    required this.recipientAddress,
+    this.isLightning = false,
+  });
 
   @override
   State<ConfirmSendScreen> createState() => _ConfirmSendScreenState();
@@ -42,9 +49,24 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
     }
   }
 
+  @override
+  void initState() {
+    super.initState();
+    // Double-check the prefix if the flag wasn't explicitly passed
+    _isLightning = widget.isLightning || 
+                   widget.recipientAddress.toLowerCase().startsWith('lnbc');
+  }
+
+  /// THE MAIN SEND HANDLER
   Future<void> _handleSend() async {
     final String amountStr = _amountController.text.trim();
-    if (amountStr.isEmpty) return;
+    
+    // Validation: On-chain always needs an amount. 
+    // Lightning might have it baked into the invoice.
+    if (!_isLightning && amountStr.isEmpty) {
+      _showSnackBar("Please enter an amount in Sats.");
+      return;
+    }
 
     setState(() => _isSending = true);
 
@@ -131,7 +153,74 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
     }
   }
 
-  void _showSuccessDialog(String txid) {
+  /// LIGHTNING LOGIC
+  Future<void> _executeLightningPayment(String amountStr) async {
+    final ldk = LdkService();
+    
+    if (amountStr.isEmpty) {
+      // 1. Fixed-Amount Invoice
+      await ldk.sendPayment(widget.recipientAddress);
+    } else {
+      // 2. Zero-Amount (Variable) Invoice
+      final int sats = int.parse(amountStr);
+      await ldk.sendPaymentWithAmount(widget.recipientAddress, sats);
+    }
+
+    if (mounted) _showSuccessDialog("Lightning Payment Sent!");
+  }
+
+  /// ON-CHAIN LOGIC (BDK)
+  Future<void> _executeOnChainPayment(String amountStr) async {
+    final walletService = WalletService();
+    if (walletService.wallet == null) throw "Wallet not initialized.";
+
+    await walletService.syncWallet();
+    
+    final int satsAmount = int.parse(amountStr);
+    final wallet = walletService.getWallet;
+    final blockchain = walletService.getBlockchain;
+
+    final address = await bdk.Address.create(address: widget.recipientAddress);
+    final script = await address.scriptPubKey();
+
+    // Build, Sign, and Broadcast
+    final txBuilder = bdk.TxBuilder().addRecipient(script, satsAmount);
+    final txResult = await txBuilder.finish(wallet);
+    final signedPsbt = await wallet.sign(psbt: txResult.psbt);
+    final finalTx = await signedPsbt.extractTx();
+
+    await blockchain.broadcast(finalTx);
+    final txid = await finalTx.txid();
+
+    if (mounted) _showSuccessDialog(txid);
+  }
+
+  /// HELPER: Error Mapping
+  void _handleError(dynamic e) {
+    debugPrint("Send Error: $e");
+    String errorMsg = e.toString();
+    
+    if (errorMsg.contains("InsufficientFunds")) {
+      errorMsg = "Insufficient balance to cover amount + fees.";
+    } else if (errorMsg.contains("NoRouteFound")) {
+      errorMsg = "No Lightning route found. Check your outbound capacity.";
+    }
+
+    _showSnackBar(errorMsg, isError: true);
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : Colors.blueAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccessDialog(String identifier) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -142,31 +231,17 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
           children: [
             Icon(Icons.check_circle, color: Colors.greenAccent),
             SizedBox(width: 10),
-            Text("Sats Sent!", style: TextStyle(color: Colors.white)),
+            Text("Success!", style: TextStyle(color: Colors.white)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Your transaction has been broadcasted.",
-                style: TextStyle(color: Colors.white70)),
-            const SizedBox(height: 16),
-            const Text("TRANSACTION ID",
-                style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1.1)),
-            const SizedBox(height: 4),
-            SelectableText(
-              txid,
-              style: const TextStyle(
-                  color: Colors.white54, fontSize: 11, fontFamily: 'monospace'),
-            ),
-          ],
+        content: Text(
+          _isLightning ? identifier : "Transaction Broadcasted.\n\nID: $identifier",
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-            child: const Text("CLOSE",
-                style: TextStyle(color: Color(0xFFBE8345), fontWeight: FontWeight.bold)),
+            child: const Text("CLOSE", style: TextStyle(color: Color(0xFFBE8345))),
           ),
         ],
       ),
@@ -178,7 +253,7 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0E1A2B),
       appBar: AppBar(
-        title: const Text("Confirm Send"),
+        title: Text(_isLightning ? "Pay Invoice" : "Send Bitcoin"),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
@@ -188,8 +263,8 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("RECIPIENT",
-                style: TextStyle(color: Colors.white38, fontSize: 12, letterSpacing: 1.1)),
+            Text(_isLightning ? "LIGHTNING INVOICE" : "RECIPIENT ADDRESS",
+                style: const TextStyle(color: Colors.white38, fontSize: 12, letterSpacing: 1.1)),
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -200,8 +275,7 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
               ),
               child: Text(
                 widget.recipientAddress,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 14, fontFamily: 'monospace'),
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'monospace'),
               ),
             ),
             const SizedBox(height: 32),
@@ -213,7 +287,6 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
               readOnly: _isLightningWithAmount,
               // Number keyboard without decimals
               keyboardType: TextInputType.number,
-              // Block commas, dots, or negative signs
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: TextStyle(
                   color: _isLightningWithAmount ? Colors.white54 : Colors.white, 
@@ -243,7 +316,7 @@ class _ConfirmSendScreenState extends State<ConfirmSendScreen> {
                       height: 24,
                       width: 24,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text("Send Sats",
+                  : const Text("Confirm Payment",
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 20),
