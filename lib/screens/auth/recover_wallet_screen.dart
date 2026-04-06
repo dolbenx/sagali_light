@@ -28,7 +28,7 @@ class _RecoverWalletScreenState extends State<RecoverWalletScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // BDK math handles the rest. If the words are correct, 
+      // Breez Liquid handles the rest. If the words are correct, 
       // the same addresses will be generated.
       await WalletService().initializeWallet(words);
 

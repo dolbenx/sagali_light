@@ -99,7 +99,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    // We use a LayoutBuilder to ensure the Column fills the height
     return Scaffold(
       backgroundColor: const Color(0xFF0E1A2B),
       extendBodyBehindAppBar: true, 
@@ -112,6 +111,9 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFFBE8345),
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white38,
           tabs: const [
             Tab(text: 'Bitcoin'),
             Tab(text: 'Lightning'),
@@ -120,7 +122,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
       ),
       body: Stack(
         children: [
-          // Background pattern fills the entire screen
           Positioned.fill(
             child: Opacity(
               opacity: 0.4,
@@ -194,7 +195,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                               );
                             },
                           ),
-                          child: _buildQrSection(),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -204,8 +204,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                             onTap: () => Share.share(_cleanAddress(activeAddress)),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        _buildAddressText(),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -216,39 +214,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                     ),
                     const SizedBox(height: 40),
                   ],
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.copy_all_rounded,
-                          label: "Copy",
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: activeAddress));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Copied to clipboard"), behavior: SnackBarBehavior.floating),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _ActionButton(
-                          icon: Icons.share_rounded,
-                          label: "Share",
-                          onTap: () => Share.share(activeAddress),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    "Payments sent to the Lightning invoice are nearly instant. Bitcoin transactions require a little bit more time.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white24, fontSize: 11),
-                  ),
-                  const SizedBox(height: 10), // Padding from the bottom edge
-                ],
+                ),
               ),
             ),
           ),

@@ -41,36 +41,23 @@ class _SendScreenState extends State<SendScreen> {
     controller.scannedDataStream.listen((scanData) {
       if (scanData.code != null) {
         controller.pauseCamera();
-        
-        String rawData = scanData.code!;
-        
-        // Clean the data (remove URI prefixes if present)
-        String cleanData = rawData.toLowerCase();
-        if (cleanData.startsWith('lightning:')) {
-          cleanData = cleanData.replaceFirst('lightning:', '');
-        } else if (cleanData.startsWith('bitcoin:')) {
-          cleanData = cleanData.split('?').first.replaceFirst('bitcoin:', '');
-        }
-
+        // Automatically navigate to confirmation when a code is found
         Navigator.push(
           context,
           MaterialPageRoute(
-          builder: (_) => ConfirmSendScreen(
-            recipientAddress: cleanData,
-            isLightning: cleanData.startsWith('ln'), // Simple detection
+            builder: (_) => ConfirmSendScreen(recipientAddress: scanData.code!),
           ),
-        ),
-      ).then((_) => controller.resumeCamera());
-    }
-  });
-}
+        ).then((_) => controller.resumeCamera());
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0E1A2B),
       appBar: AppBar(
-        title: const Text('Send Sats', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Send', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent, // Blends better with dark theme
         elevation: 0,
         foregroundColor: Colors.white,
@@ -90,7 +77,7 @@ class _SendScreenState extends State<SendScreen> {
             children: [
               const SizedBox(height: 20),
               const Text(
-                "Scan recipient's QR code",
+                "Scan Recipient's QR code",
                 style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
               const SizedBox(height: 30),

@@ -58,9 +58,7 @@ class _PinScreenState extends State<PinScreen> {
   }
 
   void _navigateToDashboard() {
-    Navigator.pushReplacement(
-      context, MaterialPageRoute(builder: (_) => const DashboardScreen())
-    );
+    Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
   @override

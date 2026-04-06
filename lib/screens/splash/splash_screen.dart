@@ -52,15 +52,15 @@ class _SplashScreenState extends State<SplashScreen>
     _checkWallet();
   }
 
-  /// THE CORE LOGIC: Initialize BDK while animating
+  /// THE CORE LOGIC: Initialize Breez Liquid while animating
   Future<void> _checkWallet() async {
     // We give the branding at least 3 seconds of screen time
     final minimumTimer = Future.delayed(const Duration(seconds: 3));
 
-    // Initialize the BDK Wallet (this checks Secure Storage for us)
+    // Initialize the Breez Liquid Wallet (this checks Secure Storage for us)
     final loginTask = WalletService().tryAutoLogin();
 
-    // Wait for BOTH the visual timer and the background BDK task
+    // Wait for BOTH the visual timer and the background initialization task
     final results = await Future.wait([minimumTimer, loginTask]);
     final bool hasWallet = results[1] as bool;
 

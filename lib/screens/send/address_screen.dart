@@ -16,27 +16,19 @@ class _AddressScreenState extends State<AddressScreen> {
   final Color primaryGold = const Color(0xFFBE8345);
   bool _isValidating = false;
 
-  /// 1. BIP21 & Lightning URI CLEANER
-  /// Handles "bitcoin:..." and "lightning:..." prefixes gracefully.
+  // 1. BIP21 CLEANER Helper
   String _cleanAddress(String input) {
     String clean = input.trim();
-    String lower = clean.toLowerCase();
-
-    if (lower.startsWith("bitcoin:")) {
+    if (clean.toLowerCase().startsWith("bitcoin:")) {
       clean = clean.substring(8);
-    } else if (lower.startsWith("lightning:")) {
-      clean = clean.substring(10);
     }
-
-    // Strip any parameters (like ?amount=...) for simple address validation
     if (clean.contains("?")) {
       clean = clean.split("?")[0];
     }
     return clean;
   }
 
-  /// 2. VALIDATION & NAVIGATION LOGIC
-  /// Now differentiates between BTC On-Chain and Lightning BOLT11
+  // 2. VALIDATION & NAVIGATION LOGIC
   Future<void> _handleContinue() async {
     final rawInput = _controller.text.trim();
     if (rawInput.isEmpty) return;
@@ -45,7 +37,6 @@ class _AddressScreenState extends State<AddressScreen> {
 
     try {
       final cleanAddr = _cleanAddress(rawInput);
-      final isLightning = cleanAddr.toLowerCase().startsWith("lnbc");
 
       final sdk = WalletService().sdk;
       if (sdk == null) throw "Wallet not initialized.";
@@ -59,7 +50,7 @@ class _AddressScreenState extends State<AddressScreen> {
           inputType is InputType_LiquidAddress;
 
       if (!isSupported) {
-        throw "Unsupported address type. Please enter a Lightning invoice, Bitcoin or Liquid address.";
+        throw "Unsupported address type. Please enter a Bitcoin or Lightning invoice.";
       }
 
       if (mounted) {
@@ -76,7 +67,6 @@ class _AddressScreenState extends State<AddressScreen> {
           SnackBar(
             content: Text("Invalid Address: ${e.toString().replaceAll('Exception:', '').trim()}"),
             backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -100,7 +90,6 @@ class _AddressScreenState extends State<AddressScreen> {
       backgroundColor: const Color(0xFF0E1A2B),
       body: Stack(
         children: [
-          // Background Pattern
           Positioned.fill(
             child: Opacity(
               opacity: 0.4,
@@ -121,7 +110,7 @@ class _AddressScreenState extends State<AddressScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Lightning Invoice, BTC or Liquid Address",
+                          "Bitcoin Or Lightning Invoice",
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -129,8 +118,6 @@ class _AddressScreenState extends State<AddressScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
-                        // Input Area
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.05),
@@ -150,7 +137,7 @@ class _AddressScreenState extends State<AddressScreen> {
                                 decoration: InputDecoration(
                                   contentPadding: const EdgeInsets.all(20),
                                   border: InputBorder.none,
-                                  hintText: 'Paste or type here...',
+                                  hintText: 'Paste or type address here...',
                                   hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
                                 ),
                               ),
@@ -168,26 +155,20 @@ class _AddressScreenState extends State<AddressScreen> {
                             ],
                           ),
                         ),
-                        
                         const SizedBox(height: 30),
-                        
-                        // Info Row
                         Row(
                           children: [
                             Icon(Icons.info_outline, color: primaryGold, size: 18),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
-                                "Sagali Wallet will automatically detect if this is a Lightning payment or On-Chain transfer.",
+                                "Ensure the address is correct. Transactions are irreversible.",
                                 style: TextStyle(color: Colors.white38, fontSize: 12),
                               ),
                             ),
                           ],
                         ),
-                        
                         const SizedBox(height: 50),
-                        
-                        // Action Button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -205,17 +186,11 @@ class _AddressScreenState extends State<AddressScreen> {
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white, 
-                                      strokeWidth: 2
-                                    ),
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                                   )
                                 : const Text(
                                     'CONTINUE',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold, 
-                                      letterSpacing: 1.1
-                                    ),
+                                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
                                   ),
                           ),
                         ),

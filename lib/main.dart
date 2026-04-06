@@ -1,36 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart'; // Ensure this path is correct
+import 'screens/auth/pin_screen.dart';
 import 'services/wallet_service.dart';
-import 'services/ldk_service.dart';
-
-import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize the flutter_rust_bridge wrapper for Breez Liquid
   await FlutterBreezLiquid.init();
 
   final walletService = WalletService();
-  final ldkService = LdkService();
 
-  // 1. Check if a wallet exists and initialize BDK
+  // 1. Check if a wallet exists and initialize Breez Liquid
   bool isLoggedIn = await walletService.tryAutoLogin();
-
-  if (isLoggedIn) {
-    try {
-      // 2. Fetch the phrase from our new method
-      final mnemonicString = await walletService.getMnemonic();
-      
-      if (mnemonicString != null) {
-        // 3. Initialize LDK using the same seed
-        await ldkService.initWallet(mnemonic: mnemonicString);
-        debugPrint("LDK Node started successfully using BDK seed!");
-      }
-    } catch (e, stack) {
-      debugPrint("Failed to start LDK: $e");
-      debugPrint(stack.toString());
-    }
-  }
 
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
@@ -51,7 +35,12 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF0E1A2B),
       ),
       // If logged in, skip splash/welcome and go to Dashboard
-      home: isLoggedIn ? const DashboardScreen() : const SplashScreen(),
+      home: isLoggedIn ? const PinScreen() : const SplashScreen(),
+      routes: {
+        '/splash': (context) => const SplashScreen(),
+        '/dashboard': (context) => const DashboardScreen(),
+        '/pin': (context) => const PinScreen(),
+      },
     );
   }
 }

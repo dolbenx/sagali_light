@@ -7,7 +7,7 @@ import '../receive/receive_screen.dart';
 import '../settings/settings_screen.dart';
 import '../transactions/transactions_screen.dart';
 import '../withdraw/withdraw_screen.dart';
-import '../../services/ldk_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,7 +18,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   String _btcBalance = "0.00000000";
-  String _zmwBalance = "0.00";
+  String _fiatBalance = "0.00";
+  String _fiatCurrency = "ZMW";
+  String _bitcoinUnit = "BTC";
   bool _isLoading = true;
   
 
@@ -30,18 +32,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _refreshWallet();
     
-    // Auto-refresh every 30 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Auto-refresh every 120 seconds to prevent rate-limiting
+    _refreshTimer = Timer.periodic(const Duration(seconds: 120), (timer) {
       _refreshWallet();
     });
   }
 
- @override
-void dispose() {
-  _refreshTimer?.cancel(); // Critical: Stop the timer when leaving the screen
-  WidgetsBinding.instance.removeObserver(this);
-  super.dispose();
-}
+  @override
+  void dispose() {
+    _refreshTimer?.cancel(); // Critical: Stop the timer when leaving the screen
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   // 4. Handle the state change
   @override
@@ -60,39 +62,61 @@ void dispose() {
     Navigator.of(context).pushNamedAndRemoveUntil('/pin', (route) => false);
   }
 
-  /// Syncs with the blockchain and updates the balance
+  Future<void> _loadPreferences() async {
+    final fiat = await const FlutterSecureStorage().read(key: 'fiat_currency');
+    final btcUnit = await const FlutterSecureStorage().read(key: 'bitcoin_unit');
+    if (mounted) {
+      setState(() {
+        if (fiat != null) _fiatCurrency = fiat;
+        if (btcUnit != null) _bitcoinUnit = btcUnit;
+      });
+    }
+  }
+
   Future<void> _refreshWallet() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
-  try {
-    final sdk = WalletService().sdk;
+    try {
+      final sdk = WalletService().sdk;
 
-    if (sdk != null) {
-      // 1. SYNC with the Liquid/Bitcoin network
-      await sdk.sync();
+      await _loadPreferences();
 
-      // 2. Get the updated wallet info (balance)
-      final info = await sdk.getInfo();
-      final BigInt balanceSat = info.walletInfo.balanceSat;
-      final double btcValue = balanceSat.toDouble() / 100000000;
+      if (sdk != null) {
+        // 1. SYNC with the Liquid/Bitcoin network
+        await sdk.sync();
 
-      // 3. Update the UI
-      if (mounted) {
-        setState(() {
-          _btcBalance = btcValue.toStringAsFixed(8);
-          // Mock conversion to ZMW
-          _zmwBalance = (btcValue * 1500000).toStringAsFixed(2);
-          _isLoading = false;
-        });
+        // 2. Get the updated wallet info (balance)
+        final info = await sdk.getInfo();
+        final BigInt balanceSat = info.walletInfo.balanceSat;
+        final double btcValue = balanceSat.toDouble() / 100000000;
+
+        // 3. Update the UI
+        if (mounted) {
+          setState(() {
+            if (_bitcoinUnit == 'SATS') {
+              _btcBalance = balanceSat.toString();
+            } else {
+              _btcBalance = btcValue.toStringAsFixed(8);
+            }
+
+            // Mock conversion to fiat
+            if (_fiatCurrency == 'USD') {
+              _fiatBalance = (btcValue * 65000).toStringAsFixed(2);
+            } else {
+              _fiatBalance = (btcValue * 1500000).toStringAsFixed(2);
+            }
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
       }
-    } else {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  } catch (e) {
-    debugPrint("Dashboard Sync Error: $e");
-    if (mounted) {
-      setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint("Dashboard Sync Error: $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -169,7 +193,7 @@ void dispose() {
                           const SizedBox(height: 40),
                           const Text("Funds Transfer", style: TextStyle(color: Colors.white, fontSize: 16)),
                           const SizedBox(height: 16),
-                          _withdrawButton(context),
+                            _withdrawButton(context),
                           const SizedBox(height: 100), 
                         ],
                       ),
@@ -193,8 +217,8 @@ void dispose() {
         RichText(
           text: TextSpan(
             children: [
-              TextSpan(text: "$_zmwBalance ", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
-              const TextSpan(text: "ZMW", style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
+              TextSpan(text: "$_fiatBalance ", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+              TextSpan(text: _fiatCurrency, style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -203,9 +227,9 @@ void dispose() {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(_btcBalance, style: const TextStyle(color: Colors.white70, fontSize: 23)),
-            const Text(
-              " BTC", 
-              style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)
+            Text(
+              " $_bitcoinUnit", 
+              style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)
             ),
           ],
         ),
@@ -225,7 +249,7 @@ void dispose() {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
           ),
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WithdrawScreen())),
-          child: const Text("Mobile Wallet", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          child: const Text("Mobile Money Wallet", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
         ),
       ),
     );
@@ -295,13 +319,19 @@ void dispose() {
   }
 }
 
-/// Helper class for Nav Items remains the same as your original snippet
+/// Helper class for Nav Items
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool isActive;
-  const _NavItem({required this.icon, required this.label, required this.onTap, this.isActive = false});
+
+  const _NavItem({
+    required this.icon, 
+    required this.label, 
+    required this.onTap, 
+    this.isActive = false
+  });
 
   @override
   Widget build(BuildContext context) {

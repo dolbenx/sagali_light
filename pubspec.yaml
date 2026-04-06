@@ -26,11 +26,9 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   local_auth: ^2.3.0
   package_info_plus: ^9.0.0
-<<<<<<< HEAD
   path_provider: ^2.1.2
-=======
-  ldk_node: ^0.1.2
->>>>>>> e34dfed3bae063b5d34db602f21bd01f3e39913c
+  currency_picker: ^2.0.21
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

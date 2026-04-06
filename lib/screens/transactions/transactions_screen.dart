@@ -3,31 +3,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 import 'dart:ui';
 import '../../services/wallet_service.dart';
-import '../../services/ldk_service.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../settings/settings_screen.dart';
-
-/// 1. UNIFIED TRANSACTION MODEL
-/// This allows us to mix BDK and LDK data into one list
-class SagaliTransaction {
-  final String title;
-  final String subtitle;
-  final String amount;
-  final bool isExpense;
-  final bool isLightning;
-  final DateTime timestamp;
-  final String id;
-
-  SagaliTransaction({
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.isExpense,
-    required this.isLightning,
-    required this.timestamp,
-    required this.id,
-  });
-}
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -42,68 +19,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   Future<List<Payment>> _getHistory() async {
     try {
-      // --- PART A: ON-CHAIN (BDK) ---
-      final bdkService = WalletService();
-      await bdkService.syncWallet();
-      final onChainTxs = await bdkService.getOnChainTransactions();
-
-      for (var tx in onChainTxs) {
-        final isReceived = tx.received > tx.sent;
-        final sats = isReceived ? (tx.received - tx.sent) : (tx.sent - tx.received);
-        final btc = sats / 100000000;
-
-        // Extract timestamp safely
-        int ts = 0;
-        final rawTs = tx.confirmationTime?.timestamp;
-        if (rawTs != null) {
-          ts = rawTs is BigInt ? rawTs.toInt() : rawTs as int;
-        }
-
-        combinedList.add(SagaliTransaction(
-          id: tx.txid,
-          title: isReceived ? 'Received Bitcoin' : 'Sent Bitcoin',
-          subtitle: tx.confirmationTime == null ? 'Pending Confirmation' : 'Confirmed On-chain',
-          amount: "${isReceived ? '+' : '-'} ${btc.toStringAsFixed(8)} BTC",
-          isExpense: !isReceived,
-          isLightning: false,
-          timestamp: DateTime.fromMillisecondsSinceEpoch(ts * 1000),
-        ));
-      }
-
-      // --- PART B: LIGHTNING (LDK) ---
-      final ldkService = LdkService();
-      if (ldkService.node != null) {
-        final payments = await ldkService.node!.listPayments();
-        for (var p in payments) {
-          // Skip failed attempts to keep the list clean
-          if (p.status == ldk.PaymentStatus.Failed) continue;
-
-          final isExpense = p.direction == ldk.PaymentDirection.Outbound;
-          final sats = (p.amountMsat ?? 0) ~/ 1000;
-
-          combinedList.add(SagaliTransaction(
-            id: p.hash.toString(),
-            title: isExpense ? 'Lightning Sent' : 'Lightning Received',
-            subtitle: p.status == ldk.PaymentStatus.Pending ? 'In Progress' : 'Lightning Payment',
-            amount: "${isExpense ? '-' : '+'} $sats SATS",
-            isExpense: isExpense,
-            isLightning: true,
-            // LDK 0.1.2 listPayments doesn't always expose timestamp in the basic object
-            // We'll use current time if it's missing, or you can map it from your own DB
-            timestamp: DateTime.now(), 
-          ));
-        }
-      }
-
-      // --- PART C: SORTING ---
-      // Newest transactions at the top
-      combinedList.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
+      final walletService = WalletService();
+      await walletService.syncWallet();
+      return await walletService.getOnChainTransactions();
     } catch (e) {
-      debugPrint("Full History Sync Error: $e");
+      debugPrint("History Sync Error: $e");
+      return [];
     }
-
-    return combinedList;
   }
 
   @override
@@ -130,7 +52,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
                       if (transactions.isEmpty) {
                         return const Center(
-                          child: Text("No activity found", style: TextStyle(color: Colors.white38)),
+                          child: Text("No Activity Found", style: TextStyle(color: Colors.white38)),
                         );
                       }
 
@@ -215,7 +137,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
-            'Activity',
+            'Transaction History',
             style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
         ],
@@ -263,6 +185,77 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class TransactionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String amount;
+  final bool isExpense;
+
+  const TransactionTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.isExpense,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isExpense ? Colors.red.withOpacity(0.1) : const Color(0xFFBE8345).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: FaIcon(
+              icon,
+              color: isExpense ? Colors.redAccent : const Color(0xFFBE8345),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            amount,
+            style: TextStyle(
+              color: isExpense ? Colors.white : const Color(0xFFBE8345),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }

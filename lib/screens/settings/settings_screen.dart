@@ -7,6 +7,9 @@ import '../auth/change_pin_screen.dart';
 import '../../services/biometric_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:currency_picker/currency_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,11 +20,36 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _version = "0.0.0";
+  String _fiatCurrency = 'ZMW';
+  String _bitcoinUnit = 'BTC';
 
   @override
   void initState() {
     super.initState();
     _initPackageInfo();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final fiat = await const FlutterSecureStorage().read(key: 'fiat_currency');
+    final btcUnit = await const FlutterSecureStorage().read(key: 'bitcoin_unit');
+    if (mounted) {
+      setState(() {
+        if (fiat != null) _fiatCurrency = fiat;
+        if (btcUnit != null) _bitcoinUnit = btcUnit;
+      });
+    }
+  }
+
+  Future<void> _savePreferences(String fiat, String btcUnit) async {
+    await const FlutterSecureStorage().write(key: 'fiat_currency', value: fiat);
+    await const FlutterSecureStorage().write(key: 'bitcoin_unit', value: btcUnit);
+    if (mounted) {
+      setState(() {
+        _fiatCurrency = fiat;
+        _bitcoinUnit = btcUnit;
+      });
+    }
   }
 
   Future<void> _initPackageInfo() async {
@@ -69,47 +97,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         SettingsTile(
                           icon: Icons.currency_bitcoin,
                           title: 'Primary Currency',
-                          subtitle: 'ZMW / BTC',
-                          onTap: () {},
+                          subtitle: '$_fiatCurrency / $_bitcoinUnit',
+                          onTap: _showCurrencyPicker,
+                        ),
+                        SettingsTile(
+                          icon: Icons.show_chart,
+                          title: 'Exchange Rates',
+                          subtitle: 'Real-time prices',
+                          onTap: _showExchangeRates,
                         ),
                       ]),
-                      const _SectionTitle(title: 'Account'),
+                      const _SectionTitle(title: 'Security'),
                       _buildSettingsGroup([
                         SettingsTile(
                           icon: Icons.security,
-                          title: 'Security',
-                          subtitle: 'Change PIN',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ChangePinScreen()),
-                            );
-                          },
-                        ),
-                        SettingsTile(
-                          icon: Icons.fingerprint,
-                          title: 'Biometrics',
-                          subtitle: 'Setup Face ID or Touch ID',
-                          onTap: () async {
-                            final bioService = BiometricService();
-                            bool isSupported = await bioService.isDeviceSupported();
-
-                            if (isSupported) {
-                              bool success = await bioService.authenticate();
-                              if (success) {
-                                // Save preference to storage
-                                await const FlutterSecureStorage().write(key: 'use_biometrics', value: 'true');
-                                
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Biometrics enabled successfully!")),
-                                );
-                              }
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Biometrics not supported on this device.")),
-                              );
-                            }
-                          },
+                          title: 'Account Security',
+                          subtitle: 'Change PIN/Biometrics',
+                          onTap: _showSecurityOptions,
                         ),
                       ]),
                       const _SectionTitle(title: 'Other'),
@@ -212,6 +216,241 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSecurityOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF162235),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Account Security", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: const Color(0xFFBE8345).withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.pin, color: Color(0xFFBE8345), size: 20),
+                ),
+                title: const Text("Change PIN", style: TextStyle(color: Colors.white, fontSize: 16)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ChangePinScreen()));
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: const Color(0xFFBE8345).withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.fingerprint, color: Color(0xFFBE8345), size: 20),
+                ),
+                title: const Text("Setup Biometrics", style: TextStyle(color: Colors.white, fontSize: 16)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final bioService = BiometricService();
+                  bool isSupported = await bioService.isDeviceSupported();
+
+                  if (isSupported) {
+                    bool success = await bioService.authenticate();
+                    if (success) {
+                      await const FlutterSecureStorage().write(key: 'use_biometrics', value: 'true');
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Biometrics enabled successfully!")),
+                        );
+                      }
+                    }
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Biometrics not supported on this device.")),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  void _showExchangeRates() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF162235),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return FutureBuilder<http.Response>(
+          future: http.get(Uri.parse('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,zmw')),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator(color: Color(0xFFBE8345))),
+              );
+            } else if (snapshot.hasError || !snapshot.hasData || snapshot.data!.statusCode != 200) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: Text("Failed to load rates", style: TextStyle(color: Colors.white70))),
+              );
+            }
+
+            final data = json.decode(snapshot.data!.body);
+            final btc = data['bitcoin'];
+            final usd = btc['usd'];
+            final zmw = btc['zmw'];
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(child: Text("Live Exchange Rates", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 20),
+                  _rateTile("US Dollar (USD)", usd != null ? "\$${usd.toStringAsFixed(2)}" : "N/A"),
+                  const SizedBox(height: 10),
+                  _rateTile("Zambian Kwacha (ZMW)", zmw != null ? "K${zmw.toStringAsFixed(2)}" : "N/A"),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            );
+          },
+        );
+      }
+    );
+  }
+
+  Widget _rateTile(String title, String rate) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          Text(rate, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  void _showCurrencyPicker() {
+    String tempFiat = _fiatCurrency;
+    String tempBtc = _bitcoinUnit;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF162235),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(child: Text("Select Display Units", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 20),
+                  const Text("Bitcoin Unit", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<String>(
+                          title: const Text("BTC", style: TextStyle(color: Colors.white)),
+                          value: "BTC",
+                          groupValue: tempBtc,
+                          activeColor: const Color(0xFFBE8345),
+                          onChanged: (val) => setModalState(() => tempBtc = val!),
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<String>(
+                          title: const Text("Sats", style: TextStyle(color: Colors.white)),
+                          value: "SATS",
+                          groupValue: tempBtc,
+                          activeColor: const Color(0xFFBE8345),
+                          onChanged: (val) => setModalState(() => tempBtc = val!),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text("Fiat Currency", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () {
+                      showCurrencyPicker(
+                        context: context,
+                        theme: CurrencyPickerThemeData(
+                          backgroundColor: const Color(0xFF162235),
+                          titleTextStyle: const TextStyle(color: Colors.white, fontSize: 16),
+                          subtitleTextStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+                          bottomSheetHeight: MediaQuery.of(context).size.height * 0.8,
+                        ),
+                        onSelect: (Currency currency) {
+                          setModalState(() {
+                            tempFiat = currency.code;
+                          });
+                        },
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(tempFiat, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                          const Icon(Icons.arrow_drop_down, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFBE8345),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      onPressed: () {
+                        _savePreferences(tempFiat, tempBtc);
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Save", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      }
     );
   }
 
