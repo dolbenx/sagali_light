@@ -47,8 +47,8 @@ class WalletService {
       final defaultC = defaultConfig(network: LiquidNetwork.mainnet);
       
       final config = Config(
-        liquidExplorer: const BlockchainExplorer.esplora(url: "https://liquid.network/api", useWaterfalls: false),
-        bitcoinExplorer: const BlockchainExplorer.esplora(url: "https://mempool.space/api", useWaterfalls: false),
+        liquidExplorer: defaultC.liquidExplorer,
+        bitcoinExplorer: defaultC.bitcoinExplorer,
         workingDir: workingDir.path,
         network: LiquidNetwork.mainnet, // FORCE MAINNET
         paymentTimeoutSec: defaultC.paymentTimeoutSec,
@@ -138,6 +138,15 @@ class WalletService {
     return finalRes.destination;
   }
 
+  /// GET LIQUID ADDRESS: Used by ReceiveScreen for direct L-BTC
+  Future<String> getLiquidAddress() async {
+    if (_sdk == null) throw Exception("Wallet not initialized");
+    final reqReceive = PrepareReceiveRequest(paymentMethod: PaymentMethod.liquidAddress);
+    final receiveRes = await _sdk!.prepareReceivePayment(req: reqReceive);
+    final finalRes = await _sdk!.receivePayment(req: ReceivePaymentRequest(prepareResponse: receiveRes));
+    return finalRes.destination;
+  }
+
   /// GET LIGHTNING INVOICE: Used by ReceiveScreen
   Future<String> getLightningInvoice(BigInt amountSats, {String? description}) async {
     if (_sdk == null) throw Exception("Wallet not initialized");
@@ -147,6 +156,23 @@ class WalletService {
     final reqReceive = PrepareReceiveRequest(
       paymentMethod: PaymentMethod.bolt11Invoice,
       amount: ReceiveAmount.bitcoin(payerAmountSat: effectiveAmount),
+    );
+    
+    final receiveRes = await _sdk!.prepareReceivePayment(req: reqReceive);
+    final finalRes = await _sdk!.receivePayment(req: ReceivePaymentRequest(
+      prepareResponse: receiveRes,
+      description: description,
+    ));
+    
+    return finalRes.destination;
+  }
+
+  /// GET BOLT12 OFFER: Static payment address
+  Future<String> getBolt12Offer({String? description}) async {
+    if (_sdk == null) throw Exception("Wallet not initialized");
+    
+    final reqReceive = PrepareReceiveRequest(
+      paymentMethod: PaymentMethod.bolt12Offer,
     );
     
     final receiveRes = await _sdk!.prepareReceivePayment(req: reqReceive);

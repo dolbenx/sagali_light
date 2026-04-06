@@ -154,9 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           const SizedBox(height: 40),
-                          _isLoading 
-                            ? const CircularProgressIndicator(color: Color(0xFFBE8345))
-                            : _balanceSection(),
+                          _balanceSection(),
                             
                           const SizedBox(height: 40),
                           Padding(

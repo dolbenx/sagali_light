@@ -19,6 +19,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
 
   String lightningInvoice = ''; 
   bool _isLoadingLn = false;
+  
   bool _isFixedAmount = false;
   final TextEditingController _amountController = TextEditingController();
 
@@ -130,92 +131,107 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    
-                    /// QR CARD
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                      ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: _buildQrSection(),
+                          Column(
+                            children: [
+                              const SizedBox(height: 20),
+                              
+                              /// QR CARD
+                              Container(
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(32),
+                                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: _buildQrSection(),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      _tabController.index == 0 
+                                          ? "Bitcoin Address" 
+                                          : "Lightning Invoice",
+                                      style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _buildAddressText(),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 40),
+                              
+                              if (_tabController.index == 1) ...[
+                                _ActionButton(
+                                  icon: Icons.edit_note_rounded,
+                                  label: "Set Specific Amount",
+                                  onTap: _showAmountSheet,
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _ActionButton(
+                                      icon: Icons.copy_all_rounded,
+                                      label: "Copy",
+                                      onTap: () {
+                                        final textToCopy = _cleanAddress(activeAddress);
+                                        Clipboard.setData(ClipboardData(text: textToCopy));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text("Copied to clipboard"), behavior: SnackBarBehavior.floating),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _ActionButton(
+                                      icon: Icons.share_rounded,
+                                      label: "Share",
+                                      onTap: () => Share.share(_cleanAddress(activeAddress)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 24),
-                          Text(
-                            _tabController.index == 0 
-                                ? "Bitcoin Address" 
-                                : (_isFixedAmount ? "Lightning Invoice" : "Lightning Invoice"),
-                            style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
+                          Column(
+                            children: [
+                              const SizedBox(height: 24),
+                              const Text(
+                                "Payments sent to the Lightning invoice are nearly instant. Bitcoin transactions require a little bit more time.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white24, fontSize: 11),
+                              ),
+                              const SizedBox(height: 40),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          _buildAddressText(),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 40),
-                    
-                    if (_tabController.index == 1) ...[
-                      _ActionButton(
-                        icon: Icons.edit_note_rounded,
-                        label: "Set Specific Amount",
-                        onTap: _showAmountSheet,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ActionButton(
-                            icon: Icons.copy_all_rounded,
-                            label: "Copy",
-                            onTap: () {
-                              final textToCopy = _cleanAddress(activeAddress);
-                              Clipboard.setData(ClipboardData(text: textToCopy));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Copied to clipboard"), behavior: SnackBarBehavior.floating),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _ActionButton(
-                            icon: Icons.share_rounded,
-                            label: "Share",
-                            onTap: () => Share.share(_cleanAddress(activeAddress)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "Payments sent to the Lightning invoice are nearly instant. Bitcoin transactions require a little bit more time.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white24, fontSize: 11),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }
             ),
           ),
         ],
@@ -225,16 +241,19 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
 
   Widget _buildQrSection() {
     bool loading = (_tabController.index == 0 && _isLoadingBtc) || (_tabController.index == 1 && _isLoadingLn);
+    final qrSize = MediaQuery.of(context).size.width * 0.55;
+    
     if (loading) {
-      return const SizedBox(
-        width: 200, height: 200, 
-        child: Center(child: CircularProgressIndicator(color: Color(0xFFBE8345)))
+      return SizedBox(
+        width: qrSize, 
+        height: qrSize, 
+        child: const Center(child: CircularProgressIndicator(color: Color(0xFFBE8345)))
       );
     }
     return QrImageView(
       data: activeAddress,
       version: QrVersions.auto,
-      size: MediaQuery.of(context).size.width * 0.55,
+      size: qrSize,
       foregroundColor: const Color(0xFF0E1A2B),
     );
   }
@@ -368,11 +387,15 @@ class _ActionButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 18),
-      label: Text(label),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white.withOpacity(0.08),
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
