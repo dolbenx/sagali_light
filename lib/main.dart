@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
+import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import 'screens/splash/splash_screen.dart';
-import 'screens/dashboard/dashboard_screen.dart'; // Ensure this path is correct
+import 'screens/dashboard/dashboard_screen.dart';
+import 'screens/main/main_screen.dart';
 import 'screens/auth/pin_screen.dart';
 import 'services/wallet_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize the flutter_rust_bridge wrapper for Breez Liquid
-  await FlutterBreezLiquid.init();
+  // Initialize the flutter_rust_bridge wrapper for Breez Spark SDK
+  await BreezSdkSparkLib.init();
 
   final walletService = WalletService();
 
-  // 1. Check if a wallet exists and initialize Breez Liquid
+  // Check if a wallet exists and initialize Breez Spark
   bool isLoggedIn = await walletService.tryAutoLogin();
 
   runApp(MyApp(isLoggedIn: isLoggedIn));
@@ -34,11 +35,10 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: const Color(0xFF0E1A2B),
       ),
-      // If logged in, skip splash/welcome and go to Dashboard
       home: isLoggedIn ? const PinScreen() : const SplashScreen(),
       routes: {
         '/splash': (context) => const SplashScreen(),
-        '/dashboard': (context) => const DashboardScreen(),
+        '/dashboard': (context) => const MainScreen(),
         '/pin': (context) => const PinScreen(),
       },
     );

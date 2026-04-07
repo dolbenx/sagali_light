@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
+import 'package:breez_sdk_spark_flutter/breez_sdk_spark.dart';
 import '../../services/wallet_service.dart';
 import 'confirm_send_screen.dart';
 
@@ -16,7 +16,7 @@ class _AddressScreenState extends State<AddressScreen> {
   final Color primaryGold = const Color(0xFFBE8345);
   bool _isValidating = false;
 
-  // 1. BIP21 CLEANER Helper
+  // BIP21 CLEANER Helper
   String _cleanAddress(String input) {
     String clean = input.trim();
     if (clean.toLowerCase().startsWith("bitcoin:")) {
@@ -28,7 +28,7 @@ class _AddressScreenState extends State<AddressScreen> {
     return clean;
   }
 
-  // 2. VALIDATION & NAVIGATION LOGIC
+  // VALIDATION & NAVIGATION LOGIC
   Future<void> _handleContinue() async {
     final rawInput = _controller.text.trim();
     if (rawInput.isEmpty) return;
@@ -41,16 +41,17 @@ class _AddressScreenState extends State<AddressScreen> {
       final sdk = WalletService().sdk;
       if (sdk == null) throw "Wallet not initialized.";
 
-      // Use Breez SDK to validate/parse the input (Lightning invoice, BTC or Liquid address)
+      // Use Spark SDK to validate/parse the input
       final inputType = await sdk.parse(input: cleanAddr);
 
-      // Only allow supported types
-      final isSupported = inputType is InputType_Bolt11 ||
+      // Accept BOLT11, Bitcoin address, or Spark address/invoice
+      final isSupported = inputType is InputType_Bolt11Invoice ||
           inputType is InputType_BitcoinAddress ||
-          inputType is InputType_LiquidAddress;
+          inputType is InputType_SparkAddress ||
+          inputType is InputType_SparkInvoice;
 
       if (!isSupported) {
-        throw "Unsupported address type. Please enter a Bitcoin or Lightning invoice.";
+        throw "Unsupported address type. Please enter a Bitcoin address or Lightning invoice.";
       }
 
       if (mounted) {
@@ -65,7 +66,8 @@ class _AddressScreenState extends State<AddressScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Invalid Address: ${e.toString().replaceAll('Exception:', '').trim()}"),
+            content: Text(
+                "Invalid Address: ${e.toString().replaceAll('Exception:', '').trim()}"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -110,7 +112,7 @@ class _AddressScreenState extends State<AddressScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Bitcoin Or Lightning Invoice",
+                          "Enter Bitcoin or Lightning Address",
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -122,7 +124,8 @@ class _AddressScreenState extends State<AddressScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            border:
+                                Border.all(color: Colors.white.withOpacity(0.1)),
                           ),
                           child: Column(
                             children: [
@@ -138,17 +141,20 @@ class _AddressScreenState extends State<AddressScreen> {
                                   contentPadding: const EdgeInsets.all(20),
                                   border: InputBorder.none,
                                   hintText: 'Paste or type address here...',
-                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                                  hintStyle: TextStyle(
+                                      color: Colors.white.withOpacity(0.2)),
                                 ),
                               ),
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton.icon(
                                   onPressed: _pasteFromClipboard,
-                                  icon: Icon(Icons.content_paste, size: 16, color: primaryGold),
+                                  icon: Icon(Icons.content_paste,
+                                      size: 16, color: primaryGold),
                                   label: Text(
                                     "Paste from clipboard",
-                                    style: TextStyle(color: primaryGold, fontSize: 12),
+                                    style:
+                                        TextStyle(color: primaryGold, fontSize: 12),
                                   ),
                                 ),
                               ),
@@ -158,12 +164,14 @@ class _AddressScreenState extends State<AddressScreen> {
                         const SizedBox(height: 30),
                         Row(
                           children: [
-                            Icon(Icons.info_outline, color: primaryGold, size: 18),
+                            Icon(Icons.info_outline,
+                                color: primaryGold, size: 18),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text(
                                 "Ensure the address is correct. Transactions are irreversible.",
-                                style: TextStyle(color: Colors.white38, fontSize: 12),
+                                style:
+                                    TextStyle(color: Colors.white38, fontSize: 12),
                               ),
                             ),
                           ],
@@ -186,12 +194,30 @@ class _AddressScreenState extends State<AddressScreen> {
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2),
                                   )
                                 : const Text(
                                     'CONTINUE',
-                                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.1),
                                   ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.qr_code_scanner, color: Colors.white54, size: 20),
+                            label: const Text(
+                              "SCAN QR CODE",
+                              style: TextStyle(
+                                  color: Colors.white54,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  letterSpacing: 1.1),
+                            ),
                           ),
                         ),
                       ],

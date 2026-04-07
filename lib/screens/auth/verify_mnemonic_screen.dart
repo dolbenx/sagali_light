@@ -24,13 +24,13 @@ class _VerifyMnemonicScreenState extends State<VerifyMnemonicScreen> {
     _shuffledWords = List.from(widget.originalMnemonic)..shuffle();
   }
 
-  /// Handles the Breez Liquid Wallet Initialization and Navigation
+  /// Handles the Breez Spark Wallet Initialization and Navigation
   void _handleFinishSetup() async {
     // 1. Show Loading Overlay
     _showLoadingOverlay(context);
 
     try {
-      // 2. Initialize the Breez Liquid Wallet via our Service
+      // 2. Initialize the Breez Spark Wallet via our Service
       // We pass the words the user selected (which should be in correct order)
       await WalletService().initializeWallet(_selectedWords);
 

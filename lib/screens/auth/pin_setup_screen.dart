@@ -39,6 +39,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
       );
     } else {
       // Reset if they don't match
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("PINs do not match. Try again.")),
       );

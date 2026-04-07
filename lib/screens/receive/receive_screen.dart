@@ -20,7 +20,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
   String lightningInvoice = ''; 
   bool _isLoadingLn = false;
   
-  bool _isFixedAmount = false;
   final TextEditingController _amountController = TextEditingController();
 
   @override
@@ -40,35 +39,41 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
   Future<void> _fetchBtcAddress() async {
     try {
       final address = await WalletService().getNewAddress();
-      setState(() {
-        btcAddress = address;
-        _isLoadingBtc = false;
-      });
+      if (mounted) {
+        setState(() {
+          btcAddress = address;
+          _isLoadingBtc = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        btcAddress = "Error loading address";
-        _isLoadingBtc = false;
-      });
+      if (mounted) {
+        setState(() {
+          btcAddress = "Error loading address";
+          _isLoadingBtc = false;
+        });
+      }
     }
   }
 
   Future<void> _generateLnInvoice(int sats) async {
-    setState(() {
-      _isLoadingLn = true;
-      _isFixedAmount = sats > 0;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingLn = true;
+      });
+    }
     
     try {
-      // Adapted to use WalletService (Breez Liquid SDK)
       final invoice = await WalletService().getLightningInvoice(BigInt.from(sats));
       
-      setState(() {
-        lightningInvoice = invoice;
-        _isLoadingLn = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingLn = false);
       if (mounted) {
+        setState(() {
+          lightningInvoice = invoice;
+          _isLoadingLn = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLn = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Breez Error: $e"), backgroundColor: Colors.redAccent),
         );
@@ -145,8 +150,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                           Column(
                             children: [
                               const SizedBox(height: 20),
-                              
-                              /// QR CARD
                               Container(
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
@@ -178,7 +181,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                                 ),
                               ),
                               const SizedBox(height: 40),
-                              
                               if (_tabController.index == 1) ...[
                                 _ActionButton(
                                   icon: Icons.edit_note_rounded,
@@ -187,7 +189,6 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
                                 ),
                                 const SizedBox(height: 16),
                               ],
-
                               Row(
                                 children: [
                                   Expanded(

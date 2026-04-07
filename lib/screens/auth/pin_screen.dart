@@ -135,12 +135,14 @@ class _PinScreenState extends State<PinScreen> {
         await _storage.write(key: 'pin_lockout_time', value: _lockoutEndTime!.toIso8601String());
         _startLockoutTimer();
         if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Account locked for ${duration.inMinutes} minute(s) due to failed attempts."), backgroundColor: Colors.red),
           );
         }
       } else {
         if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Incorrect PIN. ${3 - _failedAttempts} attempts left."), backgroundColor: Colors.red),
           );
@@ -150,6 +152,7 @@ class _PinScreenState extends State<PinScreen> {
   }
 
   void _navigateToDashboard() {
+    ScaffoldMessenger.of(context).clearSnackBars();
     Navigator.pushReplacementNamed(context, '/dashboard');
   }
 

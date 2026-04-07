@@ -68,6 +68,7 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
   }
 
   void _handleError(String err) {
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(err), backgroundColor: Colors.redAccent),
     );

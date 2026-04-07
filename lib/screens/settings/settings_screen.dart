@@ -153,27 +153,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          /// 3. FLOATING BOTTOM NAV
-          _floatingBottomNav(context),
         ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Text(
-            'Settings',
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-        ],
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.0),
+      child: Text(
+        'Settings',
+        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -424,49 +414,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _floatingBottomNav(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              height: 75,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _NavItem(
-                    icon: Icons.account_balance_wallet,
-                    label: "Wallet",
-                    onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen())),
-                  ),
-                  _NavItem(
-                    icon: Icons.swap_horiz,
-                    label: "Transactions",
-                    onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const TransactionsScreen())),
-                  ),
-                  _NavItem(
-                    icon: Icons.settings,
-                    label: "Settings",
-                    isActive: true,
-                    onTap: () {},
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// --- Helper Components ---

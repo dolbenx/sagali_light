@@ -41,6 +41,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  breez_sdk_spark_flutter:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: HEAD
+      resolved-ref: "2397eb5fba5ad9e529c7c4ab19f466b780850e1c"
+      url: "https://github.com/breez/breez-sdk-spark-flutter"
+    source: git
+    version: "0.12.2"
   build_cli_annotations:
     dependency: transitive
     description:
@@ -174,15 +183,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_breez_liquid:
-    dependency: "direct main"
-    description:
-      path: "."
-      ref: HEAD
-      resolved-ref: b1433d817d616ad34df0a048229431cf92086a15
-      url: "https://github.com/breez/breez-sdk-liquid-flutter"
-    source: git
-    version: "0.12.1"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
